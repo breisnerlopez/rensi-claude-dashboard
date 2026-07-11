@@ -67,7 +67,7 @@ Prints a temporary public URL (`*.trycloudflare.com`, via [Cloudflare Quick Tunn
 ## What it shows
 
 - **5h Block / Week** — the official rate-limit percentages, straight from Anthropic's usage API (same numbers as claude.ai), with a sustainability projection ("at this pace you have ~N days left").
-- **Conversations** — one card per active/recent project: model + version, context-window size and occupancy, cost estimate, and a one-line status ("5/6 goals · 1 subagent running · 1 workflow running").
+- **Conversations** — one card per active/recent project: model + version, context-window size and occupancy, cost estimate, and a one-line status ("5/6 goals · 1 subagent running · 1 workflow running"). A repo checked out via `claude --worktree` (`<repo>--claude-worktrees-<name>` folders) collapses into a single expandable card grouped with its main checkout, instead of one card per worktree.
 - **Session detail** (tap/click a card) — full detail for that session: goals with status and blockers, subagents with their descriptions and state, workflows with their phase pipeline, a tool-use histogram, and a scrollable activity timeline. On a wide screen this opens as a right-anchored panel with an independently-scrolling state column and activity column; on a phone it's a full-bleed sheet.
 - **Today / This week / History** — token and cost trends over time.
 

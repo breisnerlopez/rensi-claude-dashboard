@@ -20,6 +20,8 @@ PRICE = {"opus": {"in": 15e-6, "out": 75e-6, "cw": 18.75e-6, "cr": 1.5e-6},
          "haiku": {"in": 0.8e-6, "out": 4e-6, "cw": 1e-6, "cr": 0.08e-6},
          "fable": {"in": 10e-6, "out": 50e-6, "cw": 12.5e-6, "cr": 1e-6}}
 WINDOW = {"opus": 1_000_000, "sonnet": 1_000_000, "haiku": 200_000, "fable": 1_000_000}
+WORKTREE_SEP = "--claude-worktrees-"
+TIER_RANK = {"opus": 4, "fable": 3, "sonnet": 2, "haiku": 1}  # cost order, ties in _build_group_entry break alphabetically by folder
 PATH_RE = re.compile(r"(?:[A-Za-z]:\\[^\s]+|(?:/[\w.\-]+){2,})")
 SECRET_RE = re.compile(r"(-----BEGIN[ A-Z]*PRIVATE KEY-----.*?-----END[ A-Z]*PRIVATE KEY-----"
     r"|gh[opsu]_[A-Za-z0-9]{20,}|glpat-[A-Za-z0-9_\-]{16,}"
@@ -42,6 +44,100 @@ def fam(m):
         if k in m:
             return k
     return "sonnet"  # unknown/future model name: guess the mid tier, not the priciest
+
+
+def _display_folder(base):
+    return base.split("-workspace-")[-1] if "-workspace-" in base else ("workspace" if base == "-workspace" else base)
+
+
+def _split_worktree(base):
+    """(group_root, folder) -- group_root is the raw parent-repo slug if `base` looks
+    like a git-worktree child (created via `-w`, folder pattern `<repo>--claude-worktrees-<name>`),
+    else (None, folder). The cosmetic split runs unconditionally regardless of whether any
+    sibling worktree exists, so a solitary worktree child's display never changes when a
+    sibling appears/disappears -- only whether it gets merged into a group card does."""
+    if WORKTREE_SEP in base:
+        root_raw, member_raw = base.split(WORKTREE_SEP, 1)
+        group_root = _display_folder(root_raw)
+        return group_root, f"{group_root} · {member_raw or 'worktree'}"
+    return None, _display_folder(base)
+
+
+def _group_worktree_sessions(out, toolc30_by_slug):
+    # A plain (non-worktree) checkout's `folder` is its raw repo name --
+    # exactly the same string a sibling worktree's `group_root` points at.
+    # Without this, the main checkout of a repo that also has worktrees
+    # sat OUTSIDE the group entirely: a standalone card labeled identically
+    # to the group card next to it ("abax-one" appearing twice), instead of
+    # the parent/main entry inside the same expandable group the user
+    # actually expects. Re-tag it into the group here, distinguished as
+    # "<root> · main" the same way a worktree child is "<root> · <name>",
+    # and mark it so _build_group_entry can pin it first regardless of
+    # alphabetical order.
+    worktree_roots = {e["group_root"] for e in out if e.get("group_root")}
+    for e in out:
+        if not e.get("group_root") and e["folder"] in worktree_roots:
+            e["group_root"] = e["folder"]
+            e["folder"] = f'{e["folder"]} · main'
+            e["is_root"] = True
+
+    groups = defaultdict(list); singles = []
+    for e in out:
+        (groups[e["group_root"]] if e.get("group_root") else singles).append(e)
+    result = list(singles)
+    for group_root, members in groups.items():
+        result.append(members[0] if len(members) < 2 else _build_group_entry(group_root, members, toolc30_by_slug))
+    return result
+
+
+def _ctx_tier(pct):
+    # must mirror ctxColor() thresholds in web/index.html (90 danger / 70 warn) --
+    # only used to decide the "tied at the max" superscript, never to pick colors here.
+    if pct >= 90:
+        return 2
+    if pct >= 70:
+        return 1
+    return 0
+
+
+def _build_group_entry(group_root, members, toolc30_by_slug):
+    # Main checkout (if present) always listed first, worktrees alphabetical after it.
+    members = sorted(members, key=lambda m: (0 if m.get("is_root") else 1, m["folder"]))
+    max_member = max(members, key=lambda m: m["pct"])
+    tiers = [TIER_RANK.get(fam(m["model"]), TIER_RANK["sonnet"]) for m in members]
+    best_tier = max(tiers)
+    model_member = next(m for m in members if TIER_RANK.get(fam(m["model"]), TIER_RANK["sonnet"]) == best_tier)
+    max_tier = _ctx_tier(max_member["pct"])
+    # a "tie" means near-identical to the max (within 1pt) AND in the same severity
+    # bucket as the max: two members both sitting quietly at ~20% aren't a tie worth
+    # a badge (max_tier>0 gate), and comparing by bucket (not just rounded pct) stops
+    # 89.6%/90.4% -- 0.8pt apart but on opposite sides of the danger threshold --
+    # from being called a false tie.
+    tied = [m for m in members if max_tier > 0 and _ctx_tier(m["pct"]) == max_tier
+            and abs(m["pct"] - max_member["pct"]) < 1.0]
+    last_entry = max(members, key=lambda m: m["mtime"])
+    merged_tools = Counter()
+    for m in members:
+        merged_tools.update(toolc30_by_slug.get(m["detail"]["slug"], {}))
+    last_ages = [m["last_age_min"] for m in members if m["last_age_min"] is not None]
+    safe_group = re.sub(r"[^A-Za-z0-9_.-]", "_", group_root) or "root"
+
+    def det(key):
+        return sum(m["detail"].get(key, 0) for m in members)
+
+    return {"is_group": True, "folder": group_root, "group_root": group_root,
+        "model": model_member["model"], "model_mixed": len(set(fam(m["model"]) for m in members)) > 1,
+        "window": max_member["window"], "context": max_member["context"],
+        "pct": max_member["pct"], "pct_avg": round(sum(m["pct"] for m in members) / len(members), 1),
+        "pct_tied_count": len(tied), "active": any(m["active"] for m in members),
+        "mtime": max(m["mtime"] for m in members), "last": last_entry["last"],
+        "last_age_min": min(last_ages) if last_ages else None, "member_count": len(members),
+        "detail": {"slug": f"{safe_group}__group", "messages": det("messages"),
+            "tools": dict(merged_tools.most_common(6)),
+            "subagents_running": det("subagents_running"), "subagents_total": det("subagents_total"),
+            "workflows_running": det("workflows_running"), "workflows_total": det("workflows_total"),
+            "tasks_open": det("tasks_open"), "tasks_done": det("tasks_done"), "tasks_total": det("tasks_total")},
+        "members": members}
 
 
 def redact(s):
@@ -426,7 +522,7 @@ def sessions_info(summaries):
         d = os.path.dirname(f); mt = os.path.getmtime(f)
         if d not in newest_by_dir or mt > newest_by_dir[d][1]:
             newest_by_dir[d] = (f, mt)
-    out = []; kept_slugs = set()
+    out = []; kept_slugs = set(); toolc30_by_slug = {}
     for d, (newest, nmt) in sorted(newest_by_dir.items()):
         s = summaries.get(newest)
         if not s or not s.get("last"):
@@ -434,7 +530,8 @@ def sessions_info(summaries):
         sid = os.path.basename(newest)[:-6]
         last = s["last"]; results = set(s["results"]); tn = s["tn"]
         base = os.path.basename(d)
-        folder = base.split("-workspace-")[-1] if "-workspace-" in base else ("workspace" if base == "-workspace" else base)
+        group_root, folder = _split_worktree(base)
+        raw_folder = _display_folder(base)  # unmangled value the live `--remote-control` scan matches against
         safe = re.sub(r"[^A-Za-z0-9_.-]", "_", folder) or "root"
         win = WINDOW[fam(last[1])]
         tasks = []; tdir = core.TASKS_DIR / sid
@@ -474,7 +571,7 @@ def sessions_info(summaries):
         toolc = Counter(s["tools"])
         full = {"folder": folder, "model": last[1], "gitBranch": s["gitb"], "context": last[2], "window": win,
             "pct": round(100 * last[2] / win, 1), "messages": s["nmsg"], "first": s["first"], "last": last[0], "last_age_min": last_age,
-            "cost_usd": round(s["cost"], 2), "active": folder in live,
+            "cost_usd": round(s["cost"], 2), "active": raw_folder in live,
             "tasks": tasks, "tasks_open": open_t, "tasks_done": done_t, "tasks_total": tot_t,
             "subagents": subs, "subagents_running": sum(1 for x in subs if x["status"] == "running"),
             "workflows": wfl, "workflows_running": sum(1 for x in wfl if x["status"] == "running"),
@@ -484,13 +581,14 @@ def sessions_info(summaries):
         except Exception:
             pass
         kept_slugs.add(safe + ".json")
+        toolc30_by_slug[safe] = full["tools"]
         detail = {"messages": s["nmsg"], "tools": dict(toolc.most_common(6)),
             "subagents_total": len(subs), "subagents_running": full["subagents_running"],
             "workflows_total": len(wfl), "workflows_running": full["workflows_running"],
             "tasks_open": open_t, "tasks_done": done_t, "tasks_total": tot_t, "gitBranch": s["gitb"], "slug": safe}
-        out.append({"folder": folder, "model": last[1], "context": last[2], "window": win,
+        out.append({"folder": folder, "group_root": group_root, "model": last[1], "context": last[2], "window": win,
             "pct": round(100 * last[2] / win, 1), "last": last[0], "last_age_min": last_age, "mtime": nmt,
-            "active": folder in live, "detail": detail})
+            "active": raw_folder in live, "detail": detail})
 
     # Prune session/<slug>.json files for projects that fell out of this
     # run's window so a dormant project's last snapshot doesn't keep being
@@ -505,6 +603,7 @@ def sessions_info(summaries):
     except Exception:
         pass
 
+    out = _group_worktree_sessions(out, toolc30_by_slug)
     out.sort(key=lambda x: (x["active"], x["mtime"]), reverse=True)
     return out[:16]
 

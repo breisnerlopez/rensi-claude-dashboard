@@ -67,7 +67,7 @@ Imprime una URL pública temporal (`*.trycloudflare.com`, vía [Cloudflare Quick
 ## Qué muestra
 
 - **Bloque de 5h / Semana** — los porcentajes oficiales de límite de uso, directo de la API de uso de Anthropic (los mismos números que claude.ai), con una proyección de sostenibilidad ("a este ritmo te quedan ~N días").
-- **Conversaciones** — una tarjeta por proyecto activo/reciente: modelo + versión, tamaño y ocupación de la ventana de contexto, estimación de costo, y una línea de estado ("5/6 tareas · 1 subagente en curso · 1 workflow en curso").
+- **Conversaciones** — una tarjeta por proyecto activo/reciente: modelo + versión, tamaño y ocupación de la ventana de contexto, estimación de costo, y una línea de estado ("5/6 tareas · 1 subagente en curso · 1 workflow en curso"). Un repo con `claude --worktree` (carpetas `<repo>--claude-worktrees-<nombre>`) se agrupa en una sola tarjeta expandible junto con su checkout principal, en vez de una tarjeta por worktree.
 - **Detalle de sesión** (toca/clic una tarjeta) — detalle completo de esa sesión: tareas con estado y bloqueos, subagentes con su descripción y estado, workflows con su pipeline de fases, un histograma de herramientas usadas, y un timeline de actividad con scroll. En pantalla ancha se abre como un panel anclado a la derecha con columna de estado y columna de actividad con scroll independiente; en el celular es una hoja a pantalla completa.
 - **Hoy / Esta semana / Historial** — tendencias de tokens y costo en el tiempo.
 
