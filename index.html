@@ -1,0 +1,1932 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#0b0f14" />
+<title>Uso de Claude Code</title>
+<style>
+  /* ============================================================
+     Design tokens — calm dark theme, mobile-first
+     ============================================================ */
+  :root {
+    --bg:        #0b0f14;
+    --bg-elev:   #121821;
+    --bg-elev-2: #1a222d;
+    --border:    #222c38;
+    --border-2:  #2c3a49;
+
+    --text:      #e8edf3;   /* primary */
+    --text-dim:  #aeb9c6;   /* secondary — bumped for contrast */
+    --text-mute: #8a97a6;   /* captions — bumped to ~4.5:1 on bg */
+
+    /* Semantic colors: green=done/under-pace · amber=warn/en curso · red=over/failed */
+    --ok:        #4ad99b;
+    --ok-soft:   rgba(74,217,155,.15);
+    --warn:      #f2b64c;
+    --warn-soft: rgba(242,182,76,.15);
+    --danger:    #ff7b7b;
+    --danger-soft: rgba(255,123,123,.15);
+    --accent:    #7fb4ff;   /* neutral accent / "hoy" highlight */
+    --accent-soft: rgba(127,180,255,.14);
+    --violet:    #bd9bff;
+    --violet-soft: rgba(189,155,255,.15);
+    /* sustainability ESTIMATE accent — deliberately distinct from official green/amber */
+    --ceil:      #43c9c9;   /* muted teal/cyan = "estimado", never authoritative */
+    --ceil-soft: rgba(67,201,201,.16);
+
+    --radius:    18px;
+    --radius-sm: 12px;
+    --gap:       14px;
+
+    --shadow: 0 6px 24px rgba(0,0,0,.35);
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Menlo", "Cascadia Code", monospace;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    background: radial-gradient(1200px 700px at 50% -10%, #10171f 0%, var(--bg) 60%) fixed;
+    color: var(--text);
+    font-family: var(--font);
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    padding:
+      max(14px, env(safe-area-inset-top))
+      max(14px, env(safe-area-inset-right))
+      max(28px, env(safe-area-inset-bottom))
+      max(14px, env(safe-area-inset-left));
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  .tnum { font-variant-numeric: tabular-nums; }
+  h1, h2, h3 { margin: 0; font-weight: 650; letter-spacing: -.01em; }
+
+  /* "oficial" pill */
+  .official {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    padding: 3px 8px; border-radius: 999px; vertical-align: middle;
+    background: var(--ok-soft); color: var(--ok);
+    border: 1px solid rgba(74,217,155,.3);
+  }
+  .official .glyph { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* small "local estimate" tag */
+  .localtag {
+    display: inline-flex; align-items: center;
+    font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    padding: 2px 6px; border-radius: 999px; vertical-align: middle;
+    background: var(--bg-elev-2); color: var(--text-mute); border: 1px solid var(--border-2);
+  }
+
+  /* ============================================================
+     One consolidated progress-bar component (size variants)
+     ============================================================ */
+  .bar { height: 10px; border-radius: 999px; background: var(--bg-elev-2); overflow: hidden; position: relative; }
+  .bar--sm { height: 7px; }
+  .bar--lg { height: 12px; }
+  .bar > i {
+    display: block; height: 100%; border-radius: 999px; min-width: 3px;
+    transition: width .8s cubic-bezier(.2,.8,.2,1);
+  }
+
+  /* ============================================================
+     Top bar
+     ============================================================ */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; margin-bottom: var(--gap);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .brand .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--ok); box-shadow: 0 0 0 4px var(--ok-soft); flex: none;
+  }
+  .brand h1 { font-size: 1.05rem; }
+  .brand small { display: block; color: var(--text-mute); font-size: .72rem; font-weight: 500; }
+
+  .refresh {
+    display: flex; align-items: center; gap: 7px;
+    background: var(--bg-elev); border: 1px solid var(--border);
+    color: var(--text-dim); font-size: .72rem;
+    padding: 7px 11px; border-radius: 999px; white-space: nowrap;
+  }
+  .refresh.stale { background: var(--warn-soft); border-color: rgba(242,182,76,.35); color: var(--warn); }
+  .refresh .pulse {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+    animation: pulse 2s ease-in-out infinite;      /* the ONE live indicator */
+  }
+  .refresh.stale .pulse { background: var(--warn); animation: none; }
+  @keyframes pulse { 0%,100%{opacity:.35;transform:scale(.8)} 50%{opacity:1;transform:scale(1)} }
+  .refresh.api-outage { background: var(--warn-soft); border-color: rgba(242,182,76,.35); color: var(--warn); }
+
+  /* ============================================================
+     Cards / sections
+     ============================================================ */
+  section { margin-bottom: 20px; }
+  .card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 4px 10px; }
+  .section-head h2 { font-size: .95rem; color: var(--text); }
+  .section-head .hint { font-size: .72rem; color: var(--text-mute); }
+
+  /* ============================================================
+     HERO — Bloque de 5 h (official 5h %)
+     ============================================================ */
+  .hero { padding: 20px 18px 18px; position: relative; overflow: hidden; }
+  .hero::before {
+    content: ""; position: absolute; inset: -40% -20% auto -20%; height: 220px;
+    background: radial-gradient(closest-side, var(--hero-glow, transparent), transparent 70%);
+    opacity: .5; pointer-events: none;
+  }
+  .hero.stale .gauge { opacity: .55; }
+  .hero-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; position: relative; }
+  .hero-top .label {
+    font-size: .82rem; color: var(--text); font-weight: 650; letter-spacing: .01em;
+    display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .pace-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: .74rem; font-weight: 600; padding: 5px 11px; border-radius: 999px;
+    border: 1px solid transparent;
+  }
+  .pace-badge .glyph { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  .hero-main { display: flex; align-items: center; gap: 20px; position: relative; }
+  @media (max-width: 400px) { .hero-main { gap: 14px; } }
+
+  /* Radial gauge (SVG) */
+  .gauge { flex: none; width: 152px; height: 152px; position: relative; }
+  .gauge svg { transform: rotate(-90deg); display: block; }
+  .gauge .track { fill: none; stroke: var(--bg-elev-2); stroke-width: 12; }
+  .gauge .prog  { fill: none; stroke-width: 12; stroke-linecap: round;
+                  transition: stroke-dashoffset .8s cubic-bezier(.2,.8,.2,1), stroke .4s; }
+  .gauge .marker { stroke: var(--text); stroke-width: 3; stroke-linecap: round; }
+  /* sustainability ceiling — ESTIMATE: dashed/hollow tick + faint zone, distinct teal */
+  .gauge .zone { fill: none; stroke: var(--ceil-soft); stroke-width: 12; }
+  .gauge .marker-ceil { stroke: var(--ceil); stroke-width: 2.5; stroke-linecap: butt; stroke-dasharray: 2.5 2.5; opacity: .95; }
+  .gauge-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .gauge-center .pct { font-size: 3rem; font-weight: 700; line-height: 1; letter-spacing: -.02em; }
+  .gauge-center .pct span.unit { font-size: 1.1rem; font-weight: 600; color: var(--text-dim); }
+  .gauge-center .pct.nodata { font-size: 2rem; }
+  .gauge-center .cap { font-size: .64rem; color: var(--text-mute); margin-top: 4px; letter-spacing: .03em; text-transform: uppercase; }
+
+  .hero-stats { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+  .stat .k { font-size: .7rem; color: var(--text-mute); text-transform: uppercase; letter-spacing: .04em; }
+  .stat .k .est { text-transform: none; letter-spacing: 0; opacity: .85; font-weight: 500; }
+  .stat .v { font-size: 1.05rem; font-weight: 650; margin-top: 1px; }
+  .stat .v small { font-weight: 500; color: var(--text-dim); font-size: .8rem; }
+  .countdown .v { font-size: 1.3rem; letter-spacing: .01em; }
+
+  .hero-warn {
+    margin-top: 14px; font-size: .78rem; color: var(--warn);
+    background: var(--warn-soft); border: 1px solid rgba(242,182,76,.3);
+    border-radius: var(--radius-sm); padding: 10px 12px; display: none; gap: 8px; align-items: flex-start;
+  }
+  .hero-warn.show { display: flex; }
+
+  .elapsed { margin-top: 16px; position: relative; }
+  .elapsed .row { display: flex; justify-content: space-between; font-size: .7rem; color: var(--text-mute); margin-bottom: 6px; }
+
+  .forecast-note {
+    margin-top: 14px; font-size: .8rem; color: var(--text-dim);
+    background: var(--bg-elev-2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 12px; display: flex; gap: 9px; align-items: flex-start;
+  }
+  .forecast-note b { color: var(--text); font-weight: 650; }
+  .forecast-note.warn { color: var(--warn); border-color: rgba(242,182,76,.3); }
+  .forecast-note.warn b { color: var(--warn); }
+
+  .cost-line { margin-top: 12px; font-size: .74rem; color: var(--text-mute); }
+  .cost-line b { color: var(--text-dim); font-weight: 650; }
+
+  /* Sostenibilidad (HERO) — ESTIMATE box: dashed teal, always "~", never "oficial" language */
+  .ceil-block {
+    margin-top: 14px; padding: 10px 12px;
+    border: 1px dashed var(--ceil); border-radius: var(--radius-sm);
+    background: var(--ceil-soft);
+  }
+  .ceil-block.hint { border: 0; background: none; padding: 8px 2px 0; }
+  .ceil-cap { font-size: .74rem; color: var(--text-dim); display: flex; align-items: center; gap: 8px; }
+  .ceil-cap .swatch { width: 15px; height: 0; border-top: 2px dashed var(--ceil); flex: none; }
+  .ceil-cap b { color: var(--ceil); font-weight: 700; }
+  .ceil-sentence { font-size: .74rem; color: var(--text-mute); margin-top: 6px; font-style: italic; }
+  .ceil-hint { font-size: .72rem; color: var(--text-mute); font-style: italic; }
+
+  /* ============================================================
+     SEMANA — weekly official limit (demoted, smaller than hero)
+     ============================================================ */
+  .weekly { padding: 16px 18px; position: relative; overflow: hidden; }
+  .weekly::before {
+    content: ""; position: absolute; inset: -40% -20% auto -20%; height: 180px;
+    background: radial-gradient(closest-side, var(--violet-soft), transparent 70%);
+    opacity: .5; pointer-events: none;
+  }
+  .weekly-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; position: relative; }
+  .weekly-top .label {
+    font-size: .8rem; color: var(--text); font-weight: 650; letter-spacing: .01em;
+    display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .weekly-main { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; position: relative; }
+  .weekly-pct { font-size: 1.9rem; font-weight: 700; line-height: 1; letter-spacing: -.02em; color: var(--violet); }
+  .weekly-pct span.unit { font-size: .95rem; font-weight: 600; color: var(--text-dim); }
+  .weekly-pct.nodata { font-size: 1.35rem; color: var(--warn); }
+  .weekly-cap { font-size: .64rem; color: var(--text-mute); margin-top: 5px; letter-spacing: .03em; text-transform: uppercase; }
+  .weekly-reset { text-align: right; min-width: 0; }
+  .weekly-reset .k { font-size: .66rem; color: var(--text-mute); text-transform: uppercase; letter-spacing: .04em; }
+  .weekly-reset .v { font-size: 1.02rem; font-weight: 650; margin-top: 2px; }
+  .weekly-reset .d { font-size: .72rem; color: var(--text-dim); margin-top: 1px; }
+  .weekly-bar { margin-top: 14px; }
+  .weekly-bar > i { background: linear-gradient(90deg, var(--violet), #8a72ff); }
+
+  /* Sostenibilidad semanal (PRIMARY, robust signal — weekly-% only) */
+  .wk-sustain { margin-top: 15px; border-top: 1px solid var(--border); padding-top: 14px; }
+  .wk-runway-line { font-size: .8rem; color: var(--text-dim); }
+  .wk-runway-line b { color: var(--text); font-weight: 700; }
+  .wk-rbar {
+    position: relative; height: 8px; border-radius: 999px;
+    background: var(--bg-elev-2); overflow: hidden; margin: 10px 0 12px;
+  }
+  .wk-rbar > span {
+    position: absolute; top: 0; bottom: 0; border-radius: 999px;
+    transition: width .8s cubic-bezier(.2,.8,.2,1), left .8s cubic-bezier(.2,.8,.2,1);
+  }
+  .wk-verdict { font-size: .84rem; font-weight: 600; display: flex; align-items: flex-start; gap: 8px; line-height: 1.4; }
+  .wk-verdict .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; margin-top: 6px; }
+  .wk-proj { font-size: .74rem; color: var(--text-mute); margin-top: 7px; }
+  .wk-proj.over { color: var(--danger); font-weight: 600; }
+
+  /* ============================================================
+     CONVERSACIONES — context-window occupancy per conversation
+     ============================================================ */
+  .sess-aggregate {
+    font-size: .72rem; color: var(--text-mute); padding: 12px 14px 0;
+    display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline;
+  }
+  .sess-aggregate .fresh { margin-left: auto; opacity: .85; }
+  .sessions { display: flex; flex-direction: column; gap: 10px; padding: 14px; }
+  .sess {
+    background: var(--bg-elev-2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 13px; transition: border-color .2s, opacity .2s;
+  }
+  .sess.active { border-color: var(--border-2); box-shadow: inset 0 0 0 1px var(--border-2); }
+  .sess.idle { opacity: .7; }
+  .sess-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
+  .sess-id { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .sess-folder { font-size: .86rem; font-weight: 650; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .sess-model {
+    flex: none; font-size: .62rem; font-weight: 700; letter-spacing: .03em;
+    padding: 2px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent);
+    border: 1px solid rgba(127,180,255,.28); white-space: nowrap;
+  }
+  .sess-right { display: flex; align-items: center; gap: 8px; flex: none; }
+  .sess-pct { font-size: 1.02rem; font-weight: 700; }
+  .sess-pct .pct-tag { font-size: .64rem; font-weight: 600; color: var(--text-mute); text-transform: none; letter-spacing: 0; margin-left: 2px; }
+  .sess-status { font-size: .72rem; color: var(--text-dim); margin-top: 8px; }
+  .sess-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
+  .sess-toks { font-size: .72rem; color: var(--text-mute); }
+  .sess-last { font-size: .72rem; color: var(--text-mute); }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    padding: 3px 8px; border-radius: 999px; vertical-align: middle;
+  }
+  .badge.activa { background: var(--ok-soft); color: var(--ok); }
+  .badge.activa .glyph { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .badge.cap  { background: var(--danger-soft); color: var(--danger); }
+
+  .sess.clickable { cursor: pointer; }
+  .sess.clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .sess.clickable:hover { border-color: var(--border-2); }
+  .sess-chev { flex: none; color: var(--text-mute); font-size: 1.05rem; line-height: 1; font-weight: 700; opacity: .85; }
+  .sess.clickable:hover .sess-chev, .sess.clickable:focus-visible .sess-chev { color: var(--accent); opacity: 1; }
+
+  .sess-inactive-toggle {
+    width: 100%; background: var(--bg-elev-2); border: 1px solid var(--border);
+    color: var(--text-dim); font: inherit; font-size: .78rem; font-weight: 600;
+    padding: 10px 13px; border-radius: var(--radius-sm); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  .sess-inactive-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .sess-inactive-toggle .chev { transition: transform .25s; color: var(--text-mute); }
+  .sess-inactive-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
+  .sessions-inactive { display: flex; flex-direction: column; gap: 10px; }
+  .sessions-inactive.hidden { display: none; }
+  @media (min-width: 760px) {
+    .sessions { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+    .sessions-inactive:not(.hidden) { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+    .sess-inactive-toggle { grid-column: 1 / -1; }
+  }
+
+  /* ============================================================
+     HOY · bloques
+     ============================================================ */
+  .blocks { display: flex; flex-direction: column; gap: 10px; padding: 14px; }
+  .block { background: var(--bg-elev-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 13px; }
+  .block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
+  .block-time { font-size: .82rem; font-weight: 600; }
+  .block-time .rng { color: var(--text); }
+  .block-meta { font-size: .72rem; color: var(--text-mute); margin-top: 1px; }
+  .block-pct { font-size: 1.02rem; font-weight: 700; }
+  .block-pct .est { font-size: .64rem; font-weight: 600; color: var(--text-mute); text-transform: none; letter-spacing: 0; }
+  .blocks-hint { font-size: .72rem; color: var(--text-mute); text-align: center; padding: 2px 0; }
+
+  /* ============================================================
+     ESTA SEMANA — daily bars
+     ============================================================ */
+  .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; padding: 16px 14px 14px; align-items: end; }
+  .day {
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
+    background: none; border: 0; padding: 0; cursor: pointer; font: inherit; color: inherit; width: 100%;
+  }
+  .day .col {
+    width: 100%; height: 96px; background: var(--bg-elev-2); border-radius: 8px;
+    display: flex; align-items: flex-end; overflow: hidden; position: relative; border: 1px solid var(--border);
+  }
+  .day .col > i {
+    display: block; width: 100%; border-radius: 7px 7px 0 0;
+    background: linear-gradient(180deg, #5f6f80, #46566a);
+    transition: height .8s cubic-bezier(.2,.8,.2,1); min-height: 3px;
+  }
+  /* "hoy" highlighted with ACCENT (not green, which means done/good) */
+  .day.today .col { border-color: var(--accent); }
+  .day.today .col > i { background: linear-gradient(180deg, var(--accent), #4d78c9); }
+  .day .dname { font-size: .66rem; color: var(--text-mute); text-transform: uppercase; letter-spacing: .02em; }
+  .day.today .dname { color: var(--accent); font-weight: 700; }
+  .day .dval { font-size: .64rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .day[aria-expanded="true"] .col { outline: 2px solid var(--border-2); outline-offset: 1px; }
+
+  .day-detail {
+    margin: 0 14px 14px; padding: 11px 13px; background: var(--bg-elev-2);
+    border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: .78rem; color: var(--text-dim); display: none;
+  }
+  .day-detail.show { display: block; }
+  .day-detail b { color: var(--text); }
+
+  /* ============================================================
+     HISTORY
+     ============================================================ */
+  details.history > summary {
+    list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; font-size: .9rem; font-weight: 600;
+  }
+  details.history > summary::-webkit-details-marker { display: none; }
+  details.history > summary .chev { transition: transform .25s; color: var(--text-mute); }
+  details.history[open] > summary .chev { transform: rotate(180deg); }
+  .hist-list { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 2px; }
+  .hist-row { display: grid; grid-template-columns: 84px 1fr auto; align-items: center; gap: 10px; padding: 9px 4px; border-top: 1px solid var(--border); }
+  .hist-row:first-child { border-top: 0; }
+  .hist-row .hd { font-size: .76rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .hist-row .hbar > i { background: var(--text-mute); }
+  .hist-row .hv { font-size: .76rem; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+  .hist-row .hv small { color: var(--text-mute); font-weight: 500; }
+
+  /* ============================================================
+     Misc
+     ============================================================ */
+  .caveat { font-size: .7rem; color: var(--text-mute); margin: 8px 4px 0; }
+  .caveat b { color: var(--text-dim); font-weight: 600; }
+  footer { text-align: center; font-size: .7rem; color: var(--text-mute); margin-top: 8px; line-height: 1.55; }
+  footer .fnote { display: block; margin-top: 5px; }
+  .gh-star { color: var(--text-mute); text-decoration: none; }
+  .gh-star:hover, .gh-star:focus-visible { color: var(--accent); text-decoration: underline; }
+  .empty { padding: 22px 16px; text-align: center; color: var(--text-mute); font-size: .82rem; }
+
+  #banner {
+    display: none; margin-bottom: var(--gap);
+    background: var(--danger-soft); border: 1px solid rgba(255,123,123,.3);
+    color: #ffc9c9; font-size: .78rem; padding: 10px 13px; border-radius: var(--radius-sm);
+  }
+  #banner.show { display: block; }
+
+  /* ============================================================
+     CONVERSATION DETAIL MODAL
+     ============================================================ */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 100; display: none; align-items: center; justify-content: center;
+    background: rgba(4,7,10,.72); backdrop-filter: blur(3px);
+    padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+             max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--bg-elev); border: 1px solid var(--border-2);
+    border-radius: var(--radius); box-shadow: 0 18px 60px rgba(0,0,0,.6);
+    width: 100%; max-width: 640px; max-height: 100%;
+    display: flex; flex-direction: column; overflow: hidden; position: relative;
+  }
+  @media (max-width: 560px) {
+    .modal { max-width: 100%; max-height: 100%; height: 100%; border-radius: 0; border: 0; }
+    .modal-overlay { padding: 0; }
+  }
+  /* Desktop: right-anchored slide-over instead of a centered dialog, so the
+     session list stays visible (dimmed) behind it and flipping between
+     sessions doesn't lose list context -- the actual ops-console pattern. */
+  @media (min-width: 900px) {
+    .modal-overlay { justify-content: flex-end; background: rgba(4,7,10,.5); backdrop-filter: none; padding: 0; }
+    .modal {
+      max-width: min(600px, 92vw); height: 100dvh; max-height: 100dvh;
+      border-radius: 0; border: 0; border-left: 1px solid var(--border-2);
+      animation: modalSlideIn .3s cubic-bezier(.2,.8,.2,1);
+    }
+    @keyframes modalSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  }
+  .modal-head {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+    padding: 14px 14px 12px; border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; background: var(--bg-elev); z-index: 2;
+  }
+  .modal-title { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .modal-folder { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 1.02rem; font-weight: 700; letter-spacing: -.01em; word-break: break-word; }
+  .modal-sub { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+  .modal-fresh { font-size: .66rem; color: var(--text-mute); }
+  .branch-chip {
+    display: inline-flex; align-items: center; gap: 4px; max-width: 100%;
+    font-size: .68rem; font-weight: 600; color: var(--text-dim);
+    background: var(--bg-elev-2); border: 1px solid var(--border);
+    padding: 2px 8px; border-radius: 999px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--mono);
+  }
+  .modal-close {
+    flex: none; width: 44px; height: 44px; border-radius: 50%;
+    background: var(--bg-elev-2); border: 1px solid var(--border-2);
+    color: var(--text-dim); font-size: 1.35rem; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal-close:hover { color: var(--text); border-color: var(--accent); }
+  .modal-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .modal-body { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 16px 22px; }
+  /* Wide slide-over: split body into an independently-scrolling state column
+     (goals/subagents/workflows) and activity column (tools/timeline), gated
+     on panel width (not the 900px slide-over breakpoint) so 300-char task
+     text still has room to wrap instead of being squeezed into ~260px. Placed
+     after the base .modal-body rule so it wins the cascade at this width. */
+  @media (min-width: 1100px) {
+    .modal { max-width: 820px; }
+    .modal-body { display: flex; align-items: stretch; gap: 0 20px; overflow: hidden; }
+    .modal-body .m-col { min-width: 0; flex: 1 1 50%; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .modal-body .m-col + .m-col { border-left: 1px solid var(--border); padding-left: 20px; }
+  }
+
+  .modal-state { padding: 40px 16px; text-align: center; color: var(--text-mute); font-size: .84rem; }
+  .modal-state.err { color: #ffc9c9; }
+  .modal-retry {
+    margin-top: 12px; background: var(--bg-elev-2); border: 1px solid var(--border-2);
+    color: var(--text); font: inherit; font-size: .78rem; font-weight: 600; padding: 8px 16px; border-radius: 999px; cursor: pointer;
+  }
+  .modal-retry:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .spinner { width: 26px; height: 26px; margin: 0 auto 12px; border-radius: 50%; border: 3px solid var(--bg-elev-2); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .m-ctx { margin: 4px 0 16px; }
+  .m-ctx .row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; gap: 10px; }
+  .m-ctx .row .lbl { font-size: .72rem; color: var(--text-mute); display: inline-flex; align-items: center; gap: 6px; }
+  .m-ctx .row .val { font-size: .82rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .m-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 6px; }
+  @media (max-width: 420px) { .m-stats { grid-template-columns: repeat(2, 1fr); } }
+  .m-stat { background: var(--bg-elev-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 11px; }
+  .m-stat .k { font-size: .64rem; color: var(--text-mute); text-transform: uppercase; letter-spacing: .03em; }
+  .m-stat .v { font-size: 1.02rem; font-weight: 700; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .m-stat .v small { font-size: .74rem; font-weight: 500; color: var(--text-dim); }
+
+  .m-group { margin-top: 18px; }
+  .m-group > .m-label { display: flex; align-items: baseline; gap: 8px; margin: 0 2px 9px; font-size: .82rem; font-weight: 650; color: var(--text); flex-wrap: wrap; }
+  .m-group > .m-label .count { font-size: .7rem; font-weight: 600; color: var(--text-mute); }
+  .m-empty { color: var(--text-mute); font-style: italic; font-size: .76rem; padding: 2px 2px 4px; }
+  .m-list { display: flex; flex-direction: column; gap: 7px; }
+
+  .m-item { display: flex; align-items: flex-start; gap: 9px; background: var(--bg-elev-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 11px; }
+  .m-item .txt { min-width: 0; font-size: .8rem; color: var(--text); word-break: break-word; overflow-wrap: anywhere; flex: 1 1 auto; }
+  .m-item .txt .sub { color: var(--text-dim); font-size: .74rem; margin-top: 2px; word-break: break-word; }
+
+  .status-chip {
+    flex: none; display: inline-flex; align-items: center; gap: 5px;
+    font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+    padding: 3px 8px; border-radius: 999px; white-space: nowrap; border: 1px solid transparent;
+  }
+  .status-chip .glyph { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .st-completed, .st-done { background: var(--ok-soft); color: var(--ok); border-color: rgba(74,217,155,.3); }
+  .st-in_progress, .st-running { background: var(--warn-soft); color: var(--warn); border-color: rgba(242,182,76,.3); }
+  /* Tier 3 liveness: pulse ONLY here (inside an open session detail), never on the card
+     surface — bounded by however many items are running in the one open session, not by
+     however many sessions across the dashboard happen to be busy. */
+  .st-in_progress .glyph, .st-running .glyph { animation: pulse 1.6s ease-in-out infinite; }
+  .st-pending { background: var(--bg-elev); color: var(--text-dim); border-color: var(--border-2); }
+  .st-cancelled { background: var(--bg-elev); color: var(--text-mute); border-color: var(--border); opacity: .75; }
+  .st-failed { background: var(--danger-soft); color: var(--danger); border-color: rgba(255,123,123,.35); }
+  /* "sin confirmar" (stale >30min, backend can't tell done/still-running) — shape-coded, not
+     just color: dashed border + hollow ring, so it reads as uncertain rather than settled. */
+  .st-unknown { background: var(--bg-elev); color: var(--text-mute); border: 1px dashed var(--border-2); }
+  .st-unknown .glyph { background: transparent; border: 1.5px solid currentColor; }
+
+  .type-badge {
+    flex: none; font-size: .62rem; font-weight: 700; letter-spacing: .02em;
+    padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+    background: var(--violet-soft); color: var(--violet); border: 1px solid rgba(189,155,255,.28); margin-top: 1px;
+  }
+  .tool-badge {
+    flex: none; font-size: .62rem; font-weight: 700; letter-spacing: .02em;
+    padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+    background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(127,180,255,.28);
+  }
+
+  /* Herramientas — proportional bars */
+  .m-tools { display: flex; flex-direction: column; gap: 8px; }
+  .m-tool { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; }
+  .m-tool .tname { font-size: .76rem; color: var(--text-dim); word-break: break-word; }
+  .m-tool .tval { font-size: .76rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+  .m-tool .tbar { grid-column: 1 / -1; }
+  .m-tool .tbar > i { background: linear-gradient(90deg, var(--accent), #4d78c9); }
+
+  /* timeline */
+  .m-tl { display: flex; flex-direction: column; gap: 0; }
+  .m-tl .tl { display: flex; align-items: flex-start; gap: 9px; padding: 7px 2px; border-top: 1px solid var(--border); font-size: .78rem; }
+  .m-tl .tl:first-child { border-top: 0; }
+  .m-tl .tl .tl-time { flex: none; width: 66px; color: var(--text-mute); font-size: .7rem; font-variant-numeric: tabular-nums; padding-top: 2px; }
+  .m-tl .tl .tl-body { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .m-tl .tl .tl-brief { color: var(--text-dim); word-break: break-word; overflow-wrap: anywhere; }
+
+  .m-progress { margin: 2px 0 11px; }
+  .m-progress-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .m-progress-lbl { font-size: .72rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .m-progress-pct { font-size: .74rem; font-weight: 700; color: var(--ok); font-variant-numeric: tabular-nums; }
+  .m-wrap { display: inline; word-break: break-word; overflow-wrap: anywhere; }
+  .m-block { margin-top: 4px; font-size: .7rem; color: var(--warn); }
+
+  /* workflow cards + phase pipeline (colored by OVERALL status only) */
+  .wf-card { background: var(--bg-elev-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 11px; }
+  .wf-card.running { border-color: rgba(242,182,76,.4); }
+  .wf-card.failed { border-color: rgba(255,123,123,.4); }
+  .wf-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 9px; }
+  .wf-desc { flex: 1 1 auto; min-width: 0; font-size: .8rem; font-weight: 650; color: var(--text); word-break: break-word; overflow-wrap: anywhere; }
+  .wf-cap { font-size: .62rem; color: var(--text-mute); margin: 9px 0 5px; text-transform: uppercase; letter-spacing: .04em; }
+  .wf-pipe { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 4px; }
+  .wf-conn { color: var(--text-mute); font-size: .74rem; flex: none; }
+  .wf-step {
+    flex: none; font-size: .68rem; font-weight: 600; letter-spacing: .01em;
+    padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+    border: 1px solid var(--border-2); background: var(--bg-elev); color: var(--text-dim);
+  }
+  .wf-pipe.done .wf-step { background: var(--ok-soft); color: var(--ok); border-color: rgba(74,217,155,.4); }
+  .wf-pipe.done .wf-conn { color: var(--ok); }
+  .wf-pipe.running .wf-step { background: var(--warn-soft); color: var(--warn); border-color: rgba(242,182,76,.4); }
+  .wf-pipe.running .wf-conn { color: var(--warn); }
+  .wf-pipe.failed .wf-step { background: var(--danger-soft); color: var(--danger); border-color: rgba(255,123,123,.4); }
+  .wf-pipe.failed .wf-conn { color: var(--danger); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+  <div id="appRoot">
+  <header>
+    <div class="brand">
+      <span class="dot" id="liveDot"></span>
+      <div>
+        <h1>Uso de Claude Code</h1>
+        <small id="genAt">Cargando…</small>
+      </div>
+    </div>
+    <div class="refresh" id="refreshChip">
+      <span class="pulse"></span>
+      <span id="ago">actualizado ahora</span>
+    </div>
+    <div class="refresh api-outage" id="apiOutageChip" style="display:none">
+      <span id="apiOutageText"></span>
+    </div>
+  </header>
+
+  <div id="banner"></div>
+
+  <!-- HERO: Bloque de 5 h -->
+  <section>
+    <div class="card hero" id="hero">
+      <div class="hero-top">
+        <span class="label">
+          Bloque de 5 h
+          <span class="official" id="heroOfficial"><span class="glyph"></span>oficial</span>
+        </span>
+        <span class="pace-badge" id="paceBadge"><span class="glyph"></span><span id="paceText">—</span></span>
+      </div>
+
+      <div class="hero-main">
+        <div class="gauge">
+          <svg width="152" height="152" viewBox="0 0 152 152">
+            <circle class="track" cx="76" cy="76" r="62"></circle>
+            <circle class="zone" id="gaugeZone" cx="76" cy="76" r="62" style="display:none"></circle>
+            <circle class="prog" id="gaugeProg" cx="76" cy="76" r="62"></circle>
+            <line class="marker" id="gaugeMarker" x1="0" y1="0" x2="0" y2="0" style="display:none"><title>ritmo objetivo</title></line>
+            <line class="marker-ceil" id="gaugeCeil" x1="0" y1="0" x2="0" y2="0" style="display:none" role="img"><title>techo sostenible (estimado)</title></line>
+          </svg>
+          <div class="gauge-center">
+            <div class="pct tnum" id="heroPctWrap"><span id="heroPct">–</span><span class="unit">%</span></div>
+            <div class="cap" id="heroCap">límite oficial 5 h</div>
+          </div>
+        </div>
+
+        <div class="hero-stats">
+          <div class="stat">
+            <div class="k">Tokens del bloque <span class="est">(estimado)</span></div>
+            <div class="v tnum" id="heroTokensWrap"><span id="heroTokens">–</span></div>
+          </div>
+          <div class="stat countdown">
+            <div class="k">Se reinicia en</div>
+            <div class="v tnum" id="heroReset">–</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- sostenibilidad por bloque — ESTIMACIÓN (ver renderHero) -->
+      <div class="ceil-block" id="ceilBlock" style="display:none"></div>
+
+      <div class="hero-warn" id="heroWarn"><span>⚠️</span><span id="heroWarnText"></span></div>
+
+      <!-- elapsed window bar (secondary; primary pace read is the gauge marker) -->
+      <div class="elapsed">
+        <div class="row"><span>Ventana transcurrida</span><span id="elapsedPct">–</span></div>
+        <div class="bar bar--sm"><i id="elapsedBar" style="width:0%;background:var(--text-mute)"></i></div>
+      </div>
+
+      <div class="forecast-note" id="forecastNote">
+        <span>📈</span>
+        <span id="forecastText">Calculando proyección…</span>
+      </div>
+
+      <div class="cost-line" id="costLine"></div>
+    </div>
+    <p class="caveat"><b>Nota:</b> el % del Bloque de 5 h es <b>oficial</b> (igual que claude.ai). Los tokens y el costo son estimación local.</p>
+  </section>
+
+  <!-- SEMANA -->
+  <section>
+    <div class="card weekly" id="weekly">
+      <div class="weekly-top">
+        <span class="label">
+          Semana · límite (todos los modelos)
+          <span class="official" id="weeklyOfficial"><span class="glyph"></span>oficial</span>
+        </span>
+      </div>
+      <div class="weekly-main">
+        <div>
+          <div class="weekly-pct tnum" id="weeklyPctWrap"><span id="weeklyPct">–</span><span class="unit">%</span></div>
+          <div class="weekly-cap" id="weeklyCap">del límite oficial semanal</div>
+        </div>
+        <div class="weekly-reset">
+          <div class="k">Se restablece</div>
+          <div class="v tnum" id="weeklyReset">–</div>
+          <div class="d" id="weeklyResetDate">–</div>
+        </div>
+      </div>
+      <div class="bar bar--lg weekly-bar"><i id="weeklyBar" style="width:0%"></i></div>
+
+      <!-- autonomía · veredicto · proyección (señal robusta, solo %-semanal) -->
+      <div class="wk-sustain" id="wkSustain" style="display:none">
+        <div class="wk-runway-line" id="wkRunwayLine"></div>
+        <div class="wk-rbar" id="wkRbar"><span id="wkRbarA"></span><span id="wkRbarB"></span></div>
+        <div class="wk-verdict" id="wkVerdict"></div>
+        <div class="wk-proj" id="wkProj"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONVERSACIONES -->
+  <section id="sessionsSection">
+    <div class="section-head">
+      <h2>Conversaciones</h2>
+      <span class="hint">contexto por conversación</span>
+    </div>
+    <div class="card">
+      <div class="sess-aggregate" id="sessAggregate"></div>
+      <div class="sessions" id="sessions"></div>
+    </div>
+  </section>
+
+  <!-- HOY · bloques -->
+  <section>
+    <div class="section-head">
+      <h2>Hoy · bloques</h2>
+      <span class="hint">el actual está arriba ↑</span>
+    </div>
+    <div class="card">
+      <div class="blocks" id="todayBlocks"></div>
+    </div>
+  </section>
+
+  <!-- ESTA SEMANA -->
+  <section>
+    <div class="section-head">
+      <h2>Esta semana</h2>
+      <span class="hint">tokens por día</span>
+    </div>
+    <div class="card">
+      <div class="week" id="week"></div>
+      <div class="day-detail" id="dayDetail"></div>
+    </div>
+  </section>
+
+  <!-- HISTORY -->
+  <section>
+    <div class="card">
+      <details class="history">
+        <summary>
+          <span>Días anteriores</span>
+          <span class="chev">▾</span>
+        </summary>
+        <div class="hist-list" id="history"></div>
+      </details>
+    </div>
+  </section>
+
+  <footer id="footer"></footer>
+  </div><!-- /#appRoot -->
+
+  <!-- CONVERSATION DETAIL MODAL -->
+  <div class="modal-overlay" id="sessModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalFolder">
+      <div class="modal-head">
+        <div class="modal-title">
+          <div class="modal-folder" id="modalFolder">Detalle de la conversación</div>
+          <div class="modal-sub" id="modalSub"></div>
+          <div class="modal-fresh" id="modalFresh"></div>
+        </div>
+        <button type="button" class="modal-close" id="modalClose" aria-label="Cerrar">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+<script>
+/* ============================================================
+   Claude Code usage dashboard v2 — vanilla JS, no deps.
+   Fetches ./data.json + ./session/<slug>.json, auto-refresh 30s.
+   Times rendered in the browser's LOCAL timezone. Locale "es".
+
+   Official (authoritative, matches claude.ai):
+     current.pct            -> 5h block %
+     current.weekly.pct     -> weekly limit %
+   Everything else (tokens, cost, context) is a LOCAL estimate.
+   ============================================================ */
+(function () {
+  "use strict";
+
+  var LOC = "es";
+  var REFRESH_MS = 30000;
+  var STALE_MS = 3 * 60 * 1000 + 60 * 1000; // aggregator cadence (180s) + slack for slow runs (claude-monitor subprocess timeout up to 20s)
+  var API_OUTAGE_MS = 20 * 60 * 1000; // ~6 consecutive claude-monitor failures before flagging a persistent outage (vs a one-off blip)
+  var lastData = null;
+  var lastFetchOk = 0;
+  var showInactive = false;
+
+  /* ---------- formatting (decimal convention: DOT, app-wide) ---------- */
+  function fmtTokens(n) {
+    if (n == null || isNaN(n)) return "–";
+    var abs = Math.abs(n);
+    if (abs >= 1e6) return trim(n / 1e6) + "M";
+    if (abs >= 1e3) return trim(n / 1e3) + "k";
+    return String(Math.round(n));
+  }
+  function trim(x) { return (Math.round(x * 10) / 10).toString(); }
+  // Cost: whole dollars only — it is NOT a bill.
+  function fmtMoney(n) {
+    if (n == null || isNaN(n)) return "–";
+    return "$" + Math.round(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
+  }
+  function fmtPct(n) {
+    if (n == null || isNaN(n)) return "–";
+    return (Math.round(n * 10) / 10).toString();
+  }
+  // days with 1 decimal, e.g. 4.6 -> "4.6 d"
+  function fmtDays(n) {
+    if (n == null || isNaN(n)) return "–";
+    return trim(n) + " d";
+  }
+  // weekly sustainability status -> color/soft (green=margin · amber=justo · red=corto · neutral=early)
+  function weeklyStatusInfo(status) {
+    switch (status) {
+      case "under": return { color: "var(--ok)", soft: "var(--ok-soft)" };
+      case "on":    return { color: "var(--warn)", soft: "var(--warn-soft)" };
+      case "over":  return { color: "var(--danger)", soft: "var(--danger-soft)" };
+      default:      return { color: "var(--accent)", soft: "var(--accent-soft)" }; // early / unknown
+    }
+  }
+  function fmtTime(iso) {
+    if (!iso) return "–";
+    var d = new Date(iso);
+    if (isNaN(d)) return "–";
+    return d.toLocaleTimeString(LOC, { hour: "2-digit", minute: "2-digit" });
+  }
+  function fmtDateTime(iso) {
+    if (!iso) return "–";
+    var d = new Date(iso);
+    if (isNaN(d)) return "–";
+    return d.toLocaleString(LOC, { weekday: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  }
+  // ms -> "2d 04h" / "1h 23m" / "4m 05s" / "12s"
+  function fmtDuration(ms) {
+    if (ms == null || ms < 0) ms = 0;
+    var t = Math.floor(ms / 1000);
+    var d = Math.floor(t / 86400), h = Math.floor((t % 86400) / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+    if (d > 0) return d + "d " + String(h).padStart(2, "0") + "h";
+    if (h > 0) return h + "h " + String(m).padStart(2, "0") + "m";
+    if (m > 0) return m + "m " + String(s).padStart(2, "0") + "s";
+    return s + "s";
+  }
+  // minutes -> "45 min" / "1 h 20 min"
+  function fmtMins(min) {
+    min = Math.max(0, Math.round(min));
+    if (min < 60) return min + " min";
+    var h = Math.floor(min / 60), m = min % 60;
+    return h + " h" + (m ? " " + m + " min" : "");
+  }
+  // minutes-ago -> "hace 3 min" / "hace 2 h" / "hace 4 d"
+  function agoFromMin(min) {
+    if (min == null || isNaN(min)) return "–";
+    min = Math.max(0, min);
+    if (min < 1) return "hace un momento";
+    if (min < 60) return "hace " + Math.round(min) + " min";
+    if (min < 1440) return "hace " + Math.floor(min / 60) + " h";
+    return "hace " + Math.floor(min / 1440) + " d";
+  }
+  // ISO -> short relative "3 min" / "2 h" / "5 d" (timeline)
+  function relShort(iso) {
+    if (!iso) return "–";
+    var d = new Date(iso);
+    if (isNaN(d)) return "–";
+    var s = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (s < 0) s = 0;
+    if (s < 60) return "ahora";
+    if (s < 3600) return Math.round(s / 60) + " min";
+    if (s < 86400) return Math.floor(s / 3600) + " h";
+    return Math.floor(s / 86400) + " d";
+  }
+  var DOW = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+  function weekday(dateStr) { var d = parseDate(dateStr); return d ? DOW[d.getDay()] : ""; }
+  function dayNum(dateStr) { var d = parseDate(dateStr); return d ? d.getDate() : ""; }
+  function parseDate(s) {
+    if (!s) return null;
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    if (!m) { var d = new Date(s); return isNaN(d) ? null : d; }
+    return new Date(+m[1], +m[2] - 1, +m[3]);
+  }
+  function shortModel(id) {
+    if (!id) return "";
+    var s = String(id).toLowerCase(), m;
+    m = /opus-(\d+)-(\d+)/.exec(s); if (m) return "Opus " + m[1] + "." + m[2];
+    if (s.indexOf("opus") !== -1) return "Opus";
+    m = /sonnet-(\d+)-(\d+)/.exec(s); if (m) return "Sonnet " + m[1] + "." + m[2];
+    if (s.indexOf("sonnet") !== -1) return "Sonnet";
+    if (s.indexOf("haiku") !== -1) return "Haiku";
+    return String(id).replace(/^claude-/, "");
+  }
+  function toNum(n) { return (n == null || isNaN(n)) ? 0 : Number(n); }
+  function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+  function clampPct(x) { return Math.max(0, Math.min(100, x)); }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  /* ---------- pace / state color ---------- */
+  // Gauge color by pace: holgado=green · en ritmo=neutral · baja el ritmo=amber · >=95%=red.
+  function paceState(cur) {
+    var pct = cur && cur.pct != null ? cur.pct : 0;
+    var label = (cur && cur.pace_label ? cur.pace_label : "").toLowerCase();
+    if (pct >= 95) return { color: "var(--danger)", soft: "var(--danger-soft)", text: "Cerca del límite", show: true };
+    if (label.indexOf("baja") !== -1) return { color: "var(--warn)", soft: "var(--warn-soft)", text: "Baja el ritmo", show: true };
+    if (label.indexOf("holgado") !== -1) return { color: "var(--ok)", soft: "var(--ok-soft)", text: "Holgado", show: true };
+    if (label.indexOf("ritmo") !== -1) return { color: "var(--accent)", soft: "var(--accent-soft)", text: "En ritmo", show: true };
+    return { color: "var(--accent)", soft: "var(--accent-soft)", text: "", show: false };
+  }
+  function barColor(pct) {
+    if (pct >= 95) return "var(--danger)";
+    if (pct >= 80) return "var(--warn)";
+    return "var(--accent)";
+  }
+  function ctxColor(pct) {
+    if (pct >= 90) return "var(--danger)";
+    if (pct >= 70) return "var(--warn)";
+    return "var(--ok)";
+  }
+
+  /* ---------- rendering ---------- */
+  function render(data) {
+    lastData = data;
+    var cur = data.current || {};
+
+    var gen = data.generated_at ? new Date(data.generated_at) : null;
+    document.getElementById("genAt").textContent =
+      (gen && !isNaN(gen))
+        ? "Datos: " + gen.toLocaleString(LOC, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+        : "—";
+
+    renderHero(cur);
+    renderWeekly(cur);
+    renderSessions(data);
+    renderToday(data);
+    renderWeek(data);
+    renderHistory(data);
+    applyStaleness();
+
+    var tz = data.tz ? " · fuente " + data.tz : "";
+    document.getElementById("footer").innerHTML =
+      "Horas mostradas en tu zona local" + escapeHtml(tz) +
+      '<span class="fnote">Bloque de 5 h y Semana = límites oficiales (claude.ai). ' +
+      'Tokens, costo y contexto = estimación local.</span>' +
+      '<span class="fnote"><a href="https://github.com/GITHUB_USERNAME_PENDING/rensi-claude-dashboard" ' +
+      'target="_blank" rel="noopener" class="gh-star">rensi-claude-dashboard en GitHub ⭐</a></span>';
+  }
+
+  function renderHero(cur) {
+    var hero = document.getElementById("hero");
+    var st = paceState(cur);
+    var official = cur.official_available !== false && cur.pct != null;
+
+    var r = 62, cx = 76, cy = 76, circ = 2 * Math.PI * r;
+    var prog = document.getElementById("gaugeProg");
+    var pctVal = official ? cur.pct : 0;
+    var frac = clamp01(pctVal / 100);
+    prog.style.strokeDasharray = circ + " " + circ;
+    prog.style.strokeDashoffset = circ * (1 - frac);
+
+    var wrap = document.getElementById("heroPctWrap");
+    var cap = document.getElementById("heroCap");
+    var warn = document.getElementById("heroWarn");
+    var warnText = document.getElementById("heroWarnText");
+    var pill = document.getElementById("heroOfficial");
+
+    if (!official) {
+      prog.style.stroke = "var(--text-mute)";
+      wrap.className = "pct tnum nodata";
+      wrap.textContent = "—";
+      cap.textContent = "sin datos oficiales";
+      pill.style.display = "none";
+      warn.classList.add("show");
+      warnText.textContent = "Sin datos oficiales del bloque de 5 h ahora mismo.";
+      hero.style.setProperty("--hero-glow", "var(--warn-soft)");
+    } else {
+      prog.style.stroke = st.color;
+      wrap.className = "pct tnum";
+      wrap.innerHTML = '<span id="heroPct">' + fmtPct(clampPct(pctVal)) + '</span><span class="unit">%</span>';
+      cap.textContent = "límite oficial 5 h";
+      pill.style.display = "inline-flex";
+      hero.style.setProperty("--hero-glow", st.soft);
+      if (cur.low_confidence === true) {
+        warn.classList.add("show");
+        warnText.textContent = "Estimación temprana: al inicio del bloque los números son ruidosos.";
+      } else {
+        warn.classList.remove("show");
+      }
+    }
+
+    // pace marker on the ring at elapsed_pct (target pace)
+    var marker = document.getElementById("gaugeMarker");
+    var el = cur.elapsed_pct != null ? cur.elapsed_pct : null;
+    if (official && el != null) {
+      var mfrac = clamp01(el / 100);
+      var theta = mfrac * 2 * Math.PI;
+      var rin = r - 9, rout = r + 4;
+      marker.setAttribute("x1", (cx + rin * Math.cos(theta)).toFixed(2));
+      marker.setAttribute("y1", (cy + rin * Math.sin(theta)).toFixed(2));
+      marker.setAttribute("x2", (cx + rout * Math.cos(theta)).toFixed(2));
+      marker.setAttribute("y2", (cy + rout * Math.sin(theta)).toFixed(2));
+      marker.style.display = "";
+    } else {
+      marker.style.display = "none";
+    }
+
+    // ---- Techo sostenible por bloque — ESTIMACIÓN (marcador punteado teal + zona) ----
+    var w = cur.weekly || null;
+    var wOfficial = w && w.official_available !== false && w.pct != null;
+    var ceilPct = (wOfficial && w.ceiling_pct != null && !isNaN(w.ceiling_pct)) ? Number(w.ceiling_pct) : null;
+    var zone = document.getElementById("gaugeZone");
+    var ceilMk = document.getElementById("gaugeCeil");
+    var ceilBlock = document.getElementById("ceilBlock");
+
+    if (official && wOfficial && ceilPct != null) {
+      var cfrac = clamp01(ceilPct / 100);
+      // faint shaded zone BEYOND the ceiling ("esto se come tu semana")
+      zone.style.strokeDasharray = "0 " + (cfrac * circ) + " " + ((1 - cfrac) * circ);
+      zone.style.display = "";
+      // dashed / hollow ceiling tick
+      var cth = cfrac * 2 * Math.PI;
+      var cin = r - 10, cout = r + 5;
+      ceilMk.setAttribute("x1", (cx + cin * Math.cos(cth)).toFixed(2));
+      ceilMk.setAttribute("y1", (cy + cin * Math.sin(cth)).toFixed(2));
+      ceilMk.setAttribute("x2", (cx + cout * Math.cos(cth)).toFixed(2));
+      ceilMk.setAttribute("y2", (cy + cout * Math.sin(cth)).toFixed(2));
+      ceilMk.style.display = "";
+      var basis = (w.ceiling_basis_pct != null && !isNaN(w.ceiling_basis_pct)) ? fmtPct(w.ceiling_basis_pct) : "?";
+      var tip = "Estimación a partir de tu ritmo reciente (~" + basis +
+        "% por bloque); los cupos de 5 h y semanal son distintos, es aproximado.";
+      ceilMk.setAttribute("aria-label", tip);
+      var titleEl = ceilMk.querySelector("title");
+      if (titleEl) titleEl.textContent = tip;
+
+      var sentence = "";
+      switch (w.status) {
+        case "under": sentence = "Puedes empujar este bloque hasta ~" + fmtPct(ceilPct) + "% y seguir llegando a fin de semana."; break;
+        case "on":    sentence = "Mantén cada bloque por debajo de ~" + fmtPct(ceilPct) + "% para llegar al reset."; break;
+        case "over":  sentence = "Baja a bloques de ~" + fmtPct(ceilPct) + "% o menos para no quedarte sin cuota."; break;
+        default:      sentence = "";
+      }
+      ceilBlock.className = "ceil-block";
+      ceilBlock.innerHTML =
+        '<div class="ceil-cap"><span class="swatch"></span>Sostenible ≤ <b>~' + fmtPct(ceilPct) + '%</b> /bloque</div>' +
+        (sentence ? '<div class="ceil-sentence">' + escapeHtml(sentence) + '</div>' : '');
+      ceilBlock.style.display = "";
+    } else {
+      zone.style.display = "none";
+      ceilMk.style.display = "none";
+      if (official && wOfficial && w.status === "early") {
+        ceilBlock.className = "ceil-block hint";
+        ceilBlock.innerHTML = '<div class="ceil-hint">Techo sostenible: se calcula desde el día 2 de la semana.</div>';
+        ceilBlock.style.display = "";
+      } else {
+        ceilBlock.style.display = "none";
+        ceilBlock.innerHTML = "";
+      }
+    }
+
+    // tokens del bloque
+    var tokEl = document.getElementById("heroTokensWrap");
+    tokEl.innerHTML = fmtTokens(cur.tokens_active) + ' <small>tok · est.</small>';
+
+    // pace chip — single source of truth
+    var badge = document.getElementById("paceBadge");
+    if (official && st.show) {
+      badge.style.display = "inline-flex";
+      badge.style.color = st.color;
+      badge.style.background = st.soft;
+      badge.style.borderColor = st.soft;
+      document.getElementById("paceText").textContent = st.text;
+    } else {
+      badge.style.display = "none";
+    }
+
+    var dot = document.getElementById("liveDot");
+    dot.style.background = official ? st.color : "var(--warn)";
+    dot.style.boxShadow = "0 0 0 4px " + (official ? st.soft : "var(--warn-soft)");
+
+    document.getElementById("elapsedPct").textContent = el != null ? fmtPct(clampPct(el)) + "%" : "–";
+    document.getElementById("elapsedBar").style.width = (el != null ? clampPct(el) : 0) + "%";
+
+    // forecast from current.eta (NO tokens/min burn rate)
+    var fn = document.getElementById("forecastText");
+    var note = document.getElementById("forecastNote");
+    note.classList.remove("warn");
+    var eta = cur.eta || null;
+    if (!official) {
+      fn.textContent = "Sin proyección: faltan datos oficiales.";
+    } else if (eta && eta.exhaust_in_min != null && !isNaN(eta.exhaust_in_min)) {
+      note.classList.add("warn");
+      fn.innerHTML = "Alcanzas el <b>100%</b> en ~<b>" + escapeHtml(fmtMins(eta.exhaust_in_min)) + "</b>.";
+    } else if (eta && eta.projected_end_pct != null && !isNaN(eta.projected_end_pct)) {
+      fn.innerHTML = "Proyección: ~<b>" + fmtPct(eta.projected_end_pct) + "%</b> al cierre del bloque.";
+    } else {
+      fn.textContent = "Sin proyección por ahora.";
+    }
+
+    // cost — de-emphasized, whole dollars, not a bill
+    var costLine = document.getElementById("costLine");
+    if (cur.cost_usd != null && !isNaN(cur.cost_usd)) {
+      costLine.innerHTML = "<b>" + fmtMoney(cur.cost_usd) + "</b> · ≈ valor API equivalente (no facturado)";
+    } else {
+      costLine.textContent = "";
+    }
+
+    tickCountdown();
+  }
+
+  function renderWeekly(cur) {
+    var w = (cur && cur.weekly) ? cur.weekly : null;
+    var official = w && w.official_available !== false && w.pct != null;
+    var pctWrap = document.getElementById("weeklyPctWrap");
+    var capEl = document.getElementById("weeklyCap");
+    var pill = document.getElementById("weeklyOfficial");
+    var bar = document.getElementById("weeklyBar");
+
+    if (!official) {
+      pctWrap.className = "weekly-pct tnum nodata";
+      pctWrap.textContent = "— sin datos";
+      capEl.textContent = "sin datos oficiales de la semana";
+      pill.style.display = "none";
+      bar.style.width = "0%";
+    } else {
+      pctWrap.className = "weekly-pct tnum";
+      pctWrap.innerHTML = '<span>' + fmtPct(clampPct(w.pct)) + '</span><span class="unit">%</span>';
+      capEl.textContent = "del límite oficial semanal";
+      pill.style.display = "inline-flex";
+      bar.style.width = clampPct(w.pct) + "%";
+    }
+
+    document.getElementById("weeklyResetDate").textContent =
+      (w && w.resets_at) ? fmtDateTime(w.resets_at) : "–";
+
+    // ---- Sostenibilidad semanal: autonomía + veredicto + proyección ----
+    var sustain = document.getElementById("wkSustain");
+    var runway  = (official && w.runway_days != null && !isNaN(w.runway_days)) ? Number(w.runway_days) : null;
+    var daysLeft = (official && w.days_left != null && !isNaN(w.days_left)) ? Number(w.days_left) : null;
+    var status = official ? (w.status || null) : null;
+    var proj = (official && w.proj_at_reset != null && !isNaN(w.proj_at_reset)) ? Number(w.proj_at_reset) : null;
+    var hasAny = official && (runway != null || daysLeft != null || status || proj != null);
+
+    if (!hasAny) {
+      sustain.style.display = "none";
+    } else {
+      sustain.style.display = "";
+      var si = weeklyStatusInfo(status);
+
+      // runway line
+      var line = document.getElementById("wkRunwayLine");
+      if (runway != null || daysLeft != null) {
+        line.style.display = "";
+        line.innerHTML = "Autonomía a este ritmo: <b>~" +
+          escapeHtml(runway != null ? fmtDays(runway) : "–") + "</b>" +
+          (daysLeft != null ? " · quedan " + escapeHtml(fmtDays(daysLeft)) : "");
+      } else { line.style.display = "none"; }
+
+      // slim two-tone bar: runway_days vs days_left
+      var rbar = document.getElementById("wkRbar");
+      var segA = document.getElementById("wkRbarA");
+      var segB = document.getElementById("wkRbarB");
+      if (runway != null && daysLeft != null && (runway > 0 || daysLeft > 0)) {
+        var scale = Math.max(runway, daysLeft) || 1;
+        var boundary, tailColor;
+        if (runway >= daysLeft) {          // margen: llegas al reset con holgura verde
+          boundary = clampPct((daysLeft / scale) * 100); tailColor = "var(--ok)";
+        } else {                            // déficit: cola roja = te quedas corto
+          boundary = clampPct((runway / scale) * 100); tailColor = "var(--danger)";
+        }
+        segA.style.left = "0%"; segA.style.width = boundary + "%"; segA.style.background = "var(--violet)";
+        segB.style.left = boundary + "%"; segB.style.width = clampPct(100 - boundary) + "%"; segB.style.background = tailColor;
+        rbar.style.display = "";
+      } else { rbar.style.display = "none"; }
+
+      // verdict by status
+      var verdict = document.getElementById("wkVerdict");
+      var vtext = "";
+      switch (status) {
+        case "under": vtext = "Vas con margen — llegas al reset con holgura."; break;
+        case "on":    vtext = "Vas justo — cuida el ritmo."; break;
+        case "over":
+          if (runway != null && daysLeft != null) {
+            var deficit = Math.max(0.1, Math.round((daysLeft - runway) * 10) / 10);
+            vtext = "A este ritmo te quedas sin cuota ~" + trim(deficit) + " d antes del reset.";
+          } else {
+            vtext = "A este ritmo te quedas sin cuota antes del reset.";
+          }
+          break;
+        case "early": vtext = "Semana recién empieza — datos aún ruidosos."; break;
+        default: vtext = "";
+      }
+      if (vtext) {
+        verdict.style.display = "flex";
+        verdict.style.color = si.color;
+        verdict.innerHTML = '<span class="dot"></span><span>' + escapeHtml(vtext) + '</span>';
+      } else { verdict.style.display = "none"; }
+
+      // projection at reset (muted; red if it overshoots 100 early)
+      var projEl = document.getElementById("wkProj");
+      if (proj != null) {
+        projEl.style.display = "";
+        if (proj >= 100) {
+          projEl.className = "wk-proj over";
+          projEl.textContent = "Proyección: terminas al 100% antes de tiempo.";
+        } else {
+          projEl.className = "wk-proj";
+          projEl.textContent = "Proyección: terminas la semana en ~" + fmtPct(proj) + "%";
+        }
+      } else { projEl.style.display = "none"; }
+    }
+
+    tickCountdown();
+  }
+
+  // status line justifying the tap: "5/6 tareas · 1 subagente en curso · 1 workflow en curso"
+  function sessionStatusLine(d) {
+    if (!d) return "";
+    var parts = [];
+    var tt = toNum(d.tasks_total), td = toNum(d.tasks_done);
+    if (tt > 0) parts.push(td + "/" + tt + " tareas");
+    var sr = toNum(d.subagents_running);
+    if (sr > 0) parts.push(sr + (sr === 1 ? " subagente en curso" : " subagentes en curso"));
+    var wr = toNum(d.workflows_running);
+    if (wr > 0) parts.push(wr + (wr === 1 ? " workflow en curso" : " workflows en curso"));
+    if (!parts.length) {
+      var msgs = toNum(d.messages);
+      if (msgs > 0) parts.push(msgs + (msgs === 1 ? " mensaje" : " mensajes"));
+    }
+    return parts.join(" · ");
+  }
+
+  function buildSessionCard(s) {
+    var win = toNum(s.window) || 1000000;
+    var pct = s.pct != null ? s.pct : (win ? (toNum(s.context) / win) * 100 : 0);
+    var clamped = clampPct(pct);
+    var active = !!s.active;
+    var col = ctxColor(pct);
+    var folder = s.folder || "—";
+    var d = s.detail || {};
+    var slug = d.slug ? String(d.slug) : null;
+    var ageMin = s.last_age_min;
+
+    // active means process alive, not necessarily working
+    var lastTxt;
+    if (active) {
+      lastTxt = (ageMin != null && ageMin > 15)
+        ? "abierta · inactiva " + agoFromMin(ageMin)
+        : "activa · " + agoFromMin(ageMin != null ? ageMin : 0);
+    } else {
+      lastTxt = agoFromMin(ageMin);
+    }
+
+    var div = document.createElement("div");
+    div.className = "sess clickable" + (active ? " active" : " idle");
+    div.setAttribute("role", "button");
+    div.setAttribute("tabindex", "0");
+    div.setAttribute("aria-label", "Ver detalle de la conversación " + folder);
+
+    var badge = active ? '<span class="badge activa"><span class="glyph"></span>activa</span>' : "";
+    var statusLine = sessionStatusLine(d);
+
+    div.innerHTML =
+      '<div class="sess-head">' +
+        '<div class="sess-id">' +
+          '<span class="sess-folder">' + escapeHtml(folder) + '</span>' +
+          '<span class="sess-model">' + escapeHtml(shortModel(s.model)) + '</span>' +
+        '</div>' +
+        '<div class="sess-right">' +
+          badge +
+          '<span class="sess-pct tnum" style="color:' + col + '">' + fmtPct(clamped) + '%<span class="pct-tag">ctx</span></span>' +
+          '<span class="sess-chev" aria-hidden="true">›</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="bar"><i style="width:' + clamped + '%;background:' + col + '"></i></div>' +
+      (statusLine ? '<div class="sess-status">' + escapeHtml(statusLine) + '</div>' : '') +
+      '<div class="sess-foot">' +
+        '<span class="sess-toks tnum">' + fmtTokens(s.context) + ' / ' + fmtTokens(win) +
+          ' <span class="localtag">local</span></span>' +
+        '<span class="sess-last">' + escapeHtml(lastTxt) + '</span>' +
+      '</div>';
+
+    function open() { if (slug) openSessionModal(slug, s); }
+    div.addEventListener("click", open);
+    div.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") { e.preventDefault(); open(); }
+    });
+    return div;
+  }
+
+  // "3 sesiones activas · 2 subagentes en curso · 1 workflow en curso · 16 proyectos"
+  function renderAggregateStrip(data, list) {
+    var el = document.getElementById("sessAggregate");
+    if (!list.length) { el.innerHTML = ""; return; }
+    var activeN = 0, subN = 0, wfN = 0;
+    list.forEach(function (s) {
+      if (s.active) activeN++;
+      var d = s.detail || {};
+      subN += toNum(d.subagents_running);
+      wfN += toNum(d.workflows_running);
+    });
+    var parts = [];
+    parts.push(activeN + (activeN === 1 ? " sesión activa" : " sesiones activas"));
+    if (subN > 0) parts.push(subN + (subN === 1 ? " subagente en curso" : " subagentes en curso"));
+    if (wfN > 0) parts.push(wfN + (wfN === 1 ? " workflow en curso" : " workflows en curso"));
+    parts.push(list.length + (list.length === 1 ? " proyecto" : " proyectos"));
+    var freshTxt = "";
+    if (data.sessions_generated_at) {
+      var age = Math.floor((Date.now() - new Date(data.sessions_generated_at).getTime()) / 1000);
+      if (!isNaN(age) && age >= 0) freshTxt = "sesiones hace " + (age < 60 ? age + "s" : Math.floor(age / 60) + " min");
+    }
+    el.innerHTML = escapeHtml(parts.join(" · ")) + (freshTxt ? '<span class="fresh">' + escapeHtml(freshTxt) + '</span>' : "");
+  }
+
+  function renderSessions(data) {
+    var wrap = document.getElementById("sessions");
+    wrap.innerHTML = "";
+    var list = Array.isArray(data.sessions) ? data.sessions.slice() : [];
+    renderAggregateStrip(data, list);
+    if (!list.length) { wrap.innerHTML = '<div class="empty">Sin conversaciones.</div>'; return; }
+
+    function byRecent(a, b) {
+      var aa = (a.last_age_min != null) ? a.last_age_min : 1e9;
+      var bb = (b.last_age_min != null) ? b.last_age_min : 1e9;
+      return aa - bb;
+    }
+    var activeList = list.filter(function (s) { return !!s.active; }).sort(byRecent);
+    var inactiveList = list.filter(function (s) { return !s.active; }).sort(byRecent);
+
+    if (activeList.length) {
+      activeList.forEach(function (s) { wrap.appendChild(buildSessionCard(s)); });
+    } else {
+      var note = document.createElement("div");
+      note.className = "empty";
+      note.textContent = "Sin conversaciones activas.";
+      wrap.appendChild(note);
+    }
+
+    if (inactiveList.length) {
+      var toggleBtn = document.createElement("button");
+      toggleBtn.type = "button";
+      toggleBtn.className = "sess-inactive-toggle";
+      toggleBtn.setAttribute("aria-expanded", showInactive ? "true" : "false");
+
+      var container = document.createElement("div");
+      container.className = "sessions-inactive" + (showInactive ? "" : " hidden");
+      inactiveList.forEach(function (s) { container.appendChild(buildSessionCard(s)); });
+
+      function paintToggle() {
+        toggleBtn.innerHTML = "<span>" +
+          (showInactive ? "Ocultar inactivas" : "Mostrar inactivas (" + inactiveList.length + ")") +
+          '</span><span class="chev" aria-hidden="true">▾</span>';
+      }
+      paintToggle();
+      toggleBtn.addEventListener("click", function () {
+        showInactive = !showInactive;
+        toggleBtn.setAttribute("aria-expanded", showInactive ? "true" : "false");
+        container.classList.toggle("hidden", !showInactive);
+        paintToggle();
+      });
+      wrap.appendChild(toggleBtn);
+      wrap.appendChild(container);
+    }
+  }
+
+  function renderToday(data) {
+    var wrap = document.getElementById("todayBlocks");
+    var blocks = (Array.isArray(data.today_blocks) ? data.today_blocks : []).filter(function (b) { return !b.active; });
+    wrap.innerHTML = "";
+
+    if (!blocks.length) {
+      wrap.innerHTML = '<div class="blocks-hint">Sin bloques anteriores hoy · el bloque en curso está arriba ↑</div>';
+      return;
+    }
+
+    var hint = document.createElement("div");
+    hint.className = "blocks-hint";
+    hint.textContent = "El bloque en curso está arriba ↑";
+    wrap.appendChild(hint);
+
+    blocks.forEach(function (b) {
+      var hasPct = b.pct != null;
+      var pct = hasPct ? b.pct : 0;
+      var estimated = !!b.estimated;
+      var div = document.createElement("div");
+      div.className = "block";
+      var estTag = estimated ? ' <span class="est">est.</span>' : "";
+      var pctHtml = hasPct
+        ? fmtPct(clampPct(pct)) + '%' + estTag
+        : '<span style="color:var(--text-mute)">sin datos</span>';
+      var barColorVal = hasPct ? barColor(pct) : "var(--text-mute)";
+      div.innerHTML =
+        '<div class="block-head">' +
+          '<div>' +
+            '<div class="block-time"><span class="rng">' + escapeHtml(fmtTime(b.start)) + "–" + escapeHtml(fmtTime(b.end)) + '</span></div>' +
+            '<div class="block-meta">' + fmtTokens(b.tokens) + ' tokens · ' + fmtMoney(b.cost_usd) + ' est.</div>' +
+          '</div>' +
+          '<div class="block-pct tnum" style="color:' + barColorVal + '">' + pctHtml + '</div>' +
+        '</div>' +
+        '<div class="bar"><i style="width:' + (hasPct ? clampPct(pct) : 0) + '%;background:' + barColorVal + '"></i></div>';
+      wrap.appendChild(div);
+    });
+  }
+
+  function renderWeek(data) {
+    var wrap = document.getElementById("week");
+    var detail = document.getElementById("dayDetail");
+    wrap.innerHTML = "";
+    detail.className = "day-detail";
+    var week = Array.isArray(data.week) ? data.week.slice() : [];
+    if (!week.length) { wrap.innerHTML = '<div class="empty" style="grid-column:1/-1">Sin datos de la semana.</div>'; return; }
+
+    var max = Math.max.apply(null, week.map(function (d) { return d.tokens || 0; })) || 1;
+    var todayStr = data.today;
+
+    week.forEach(function (d, i) {
+      var h = Math.round(((d.tokens || 0) / max) * 100);
+      var isToday = d.date === todayStr;
+      var btn = document.createElement("button");
+      btn.className = "day" + (isToday ? " today" : "");
+      btn.setAttribute("aria-expanded", "false");
+      btn.innerHTML =
+        '<div class="col"><i style="height:' + h + '%"></i></div>' +
+        '<div class="dname">' + weekday(d.date) + '</div>' +
+        '<div class="dval">' + fmtTokens(d.tokens) + '</div>';
+      btn.addEventListener("click", function () {
+        var open = detail.classList.contains("show") && detail.dataset.i === String(i);
+        wrap.querySelectorAll(".day").forEach(function (x) { x.setAttribute("aria-expanded", "false"); });
+        if (open) { detail.classList.remove("show"); detail.dataset.i = ""; return; }
+        btn.setAttribute("aria-expanded", "true");
+        detail.dataset.i = String(i);
+        detail.innerHTML =
+          '<b>' + weekday(d.date) + " " + dayNum(d.date) + '</b> · ' +
+          '<b>' + fmtTokens(d.tokens) + '</b> tokens · ' +
+          '<b>' + fmtMoney(d.cost_usd) + '</b> est. · ' +
+          (d.blocks || 0) + ' bloque' + ((d.blocks === 1) ? "" : "s");
+        detail.classList.add("show");
+      });
+      wrap.appendChild(btn);
+    });
+  }
+
+  function renderHistory(data) {
+    var wrap = document.getElementById("history");
+    wrap.innerHTML = "";
+    var hist = Array.isArray(data.history) ? data.history.slice() : [];
+    if (!hist.length) { wrap.innerHTML = '<div class="empty">Sin historial anterior.</div>'; return; }
+    hist.sort(function (a, b) { return (a.date < b.date ? 1 : -1); });
+    var max = Math.max.apply(null, hist.map(function (d) { return d.tokens || 0; })) || 1;
+
+    hist.forEach(function (d) {
+      var w = Math.round(((d.tokens || 0) / max) * 100);
+      var row = document.createElement("div");
+      row.className = "hist-row";
+      row.innerHTML =
+        '<div class="hd">' + weekday(d.date) + " " + dayNum(d.date) + '</div>' +
+        '<div class="bar bar--sm hbar"><i style="width:' + w + '%"></i></div>' +
+        '<div class="hv tnum">' + fmtTokens(d.tokens) + ' <small>· ' + fmtMoney(d.cost_usd) + ' est.</small></div>';
+      wrap.appendChild(row);
+    });
+  }
+
+  /* ---------- staleness ---------- */
+  function applyStaleness() {
+    if (!lastData || !lastData.generated_at) return;
+    var gen = new Date(lastData.generated_at).getTime();
+    if (isNaN(gen)) return;
+    var ageMs = Date.now() - gen;
+    var chip = document.getElementById("refreshChip");
+    var hero = document.getElementById("hero");
+    if (ageMs > STALE_MS) {
+      chip.classList.add("stale");
+      hero.classList.add("stale");
+      var mins = Math.floor(ageMs / 60000);
+      document.getElementById("ago").textContent = "datos no actualizados (hace " + mins + " min)";
+    } else {
+      chip.classList.remove("stale");
+      hero.classList.remove("stale");
+    }
+    applyApiOutage();
+  }
+
+  // Separate from data-freshness staleness above: the cron job can keep
+  // running fine (generated_at stays fresh) while claude-monitor itself
+  // (the official Anthropic usage API integration) keeps failing every run.
+  // api_fail_since is set by aggregate.py the first time api_ok goes false
+  // and carried forward across runs until it recovers.
+  function applyApiOutage() {
+    var outageChip = document.getElementById("apiOutageChip");
+    var failSince = lastData && lastData.api_fail_since ? new Date(lastData.api_fail_since).getTime() : NaN;
+    if (isNaN(failSince)) { outageChip.style.display = "none"; return; }
+    var downMs = Date.now() - failSince;
+    if (downMs < API_OUTAGE_MS) { outageChip.style.display = "none"; return; }
+    var mins = Math.floor(downMs / 60000);
+    var label = mins < 60 ? mins + " min" : Math.floor(mins / 60) + "h " + (mins % 60) + "m";
+    document.getElementById("apiOutageText").textContent = "API oficial caída hace " + label;
+    outageChip.style.display = "flex";
+  }
+
+  /* ---------- live countdowns ---------- */
+  function tickCountdown() {
+    var cur = lastData && lastData.current;
+    var elReset = document.getElementById("heroReset");
+    if (elReset) {
+      if (!cur || !cur.resets_at) { elReset.textContent = "–"; }
+      else {
+        var target = new Date(cur.resets_at).getTime();
+        if (isNaN(target)) { elReset.textContent = "–"; }
+        else {
+          var ms = target - Date.now();
+          if (ms <= 0) { elReset.textContent = "reiniciando…"; elReset.style.color = "var(--ok)"; }
+          else { elReset.textContent = fmtDuration(ms); elReset.style.color = ms < 5 * 60 * 1000 ? "var(--warn)" : "var(--text)"; }
+        }
+      }
+    }
+    var elWeek = document.getElementById("weeklyReset");
+    var w = cur && cur.weekly;
+    if (elWeek) {
+      if (!w || !w.resets_at) { elWeek.textContent = "–"; }
+      else {
+        var wt = new Date(w.resets_at).getTime();
+        if (isNaN(wt)) { elWeek.textContent = "–"; }
+        else {
+          var wms = wt - Date.now();
+          if (wms <= 0) { elWeek.textContent = "reiniciando…"; elWeek.style.color = "var(--ok)"; }
+          else { elWeek.textContent = "en " + fmtDuration(wms); elWeek.style.color = "var(--text)"; }
+        }
+      }
+    }
+  }
+
+  function tickAgo() {
+    if (!lastFetchOk) return;
+    var chip = document.getElementById("refreshChip");
+    if (chip.classList.contains("stale")) return; // staleness message wins
+    var secs = Math.floor((Date.now() - lastFetchOk) / 1000);
+    var el = document.getElementById("ago");
+    if (secs < 5) el.textContent = "actualizado ahora";
+    else if (secs < 60) el.textContent = "actualizado hace " + secs + "s";
+    else el.textContent = "actualizado hace " + Math.floor(secs / 60) + " min";
+  }
+
+  /* ---------- fetching ---------- */
+  async function load() {
+    try {
+      var res = await fetch("./data.json", { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      var data = await res.json();
+      lastFetchOk = Date.now();
+      hideBanner();
+      render(data);
+    } catch (err) {
+      showBanner("No se pudo actualizar los datos (" + err.message + "). Mostrando lo último conocido.");
+      if (!lastData) document.getElementById("genAt").textContent = "sin datos";
+    }
+    tickAgo();
+  }
+  function showBanner(msg) { var b = document.getElementById("banner"); b.textContent = "⚠️ " + msg; b.classList.add("show"); }
+  function hideBanner() { document.getElementById("banner").classList.remove("show"); }
+
+  /* ============================================================
+     CONVERSATION DETAIL MODAL
+     ============================================================ */
+  var MODAL_REFRESH_MS = 15000; // matches the fast sessions-only backend cycle (~15s)
+  var modalSlug = null;
+  var modalTimer = null;
+  var modalReturnFocus = null;
+  var modalPushed = false;   // whether we pushed a history entry
+
+  var STATUS_CLASS = {
+    completed: "st-completed", in_progress: "st-in_progress", pending: "st-pending",
+    cancelled: "st-cancelled", done: "st-done", running: "st-running", failed: "st-failed",
+    unknown: "st-unknown"
+  };
+  // Unified vocabulary: running -> "en curso" everywhere; done/completed always carry the checkmark.
+  // "unknown" (backend marks a subagent/workflow stale after 30min with no session activity)
+  // is deliberately never rendered as the literal English word -- shape (dashed/hollow), not
+  // just color, signals "uncertain" rather than "settled".
+  var STATUS_LABEL = {
+    completed: "completado ✓", in_progress: "en curso", pending: "pendiente",
+    cancelled: "cancelada", done: "completado ✓", running: "en curso", failed: "falló",
+    unknown: "sin confirmar"
+  };
+  function statusChip(status) {
+    var s = String(status == null ? "" : status).toLowerCase();
+    var cls = STATUS_CLASS[s] || "st-pending";
+    var label = STATUS_LABEL[s] || (s || "—");
+    return '<span class="status-chip ' + cls + '"><span class="glyph"></span>' + escapeHtml(label) + '</span>';
+  }
+
+  function modalStateHtml(kind, msg) {
+    if (kind === "loading") {
+      return '<div class="modal-state"><div class="spinner"></div>' + escapeHtml(msg || "Cargando…") + '</div>';
+    }
+    return '<div class="modal-state err">' + escapeHtml(msg || "Error") +
+      '<div><button type="button" class="modal-retry" id="modalRetry">Reintentar</button></div></div>';
+  }
+
+  function paintModalHeader(sd) {
+    var folder = (sd && sd.folder) || "—";
+    var active = !!(sd && sd.active);
+    var badge = active ? ' <span class="badge activa"><span class="glyph"></span>activa</span>' : "";
+    document.getElementById("modalFolder").innerHTML = escapeHtml(folder) + badge;
+
+    var sub = document.getElementById("modalSub");
+    var html = "";
+    var model = sd && sd.model ? shortModel(sd.model) : "";
+    if (model) html += '<span class="sess-model">' + escapeHtml(model) + '</span>';
+    if (sd && sd.gitBranch) {
+      html += '<span class="branch-chip" title="' + escapeHtml(sd.gitBranch) + '">⎇ ' + escapeHtml(sd.gitBranch) + '</span>';
+    }
+    sub.innerHTML = html;
+  }
+
+  function renderModalBody(sd) {
+    sd = sd || {};
+    var ctx = toNum(sd.context);
+    var win = toNum(sd.window) || 1000000;
+    var pct = (sd.pct != null && !isNaN(sd.pct)) ? Number(sd.pct) : (win ? (ctx / win) * 100 : 0);
+    var col = ctxColor(pct);
+    var winLabel = fmtTokens(win);
+
+    // Two logical groups, wrapped so a wide-enough slide-over (>=1100px)
+    // can split them into independently-scrolling columns via CSS alone
+    // (.modal-body .m-col) -- state (plan/blockage) vs activity (live feed).
+    var html = '<div class="m-col m-col-state">';
+
+    // context bar — labeled with a "local" tag (unlike the official limits)
+    html += '<div class="m-ctx">' +
+      '<div class="row"><span class="lbl">Contexto · ' + escapeHtml(winLabel) +
+      ' <span class="localtag">local</span></span>' +
+      '<span class="val" style="color:' + col + '">' + fmtPct(clampPct(pct)) + '%</span></div>' +
+      '<div class="bar"><i style="width:' + clampPct(pct) + '%;background:' + col + '"></i></div>' +
+      '<div class="row" style="margin-top:6px;margin-bottom:0"><span class="lbl">' +
+      fmtTokens(ctx) + ' / ' + fmtTokens(win) + ' tokens</span>' +
+      '<span class="lbl">activa desde ' + escapeHtml(fmtDateTime(sd.first)) + '</span></div>' +
+      '</div>';
+
+    // stat grid
+    html += '<div class="m-stats">' +
+      '<div class="m-stat"><div class="k">Mensajes</div><div class="v">' + (sd.messages != null ? toNum(sd.messages) : "–") + '</div></div>' +
+      '<div class="m-stat"><div class="k">≈ valor API (est.)</div><div class="v">' + fmtMoney(sd.cost_usd) + '</div></div>' +
+      '<div class="m-stat"><div class="k">Última actividad</div><div class="v"><small>' + escapeHtml(agoFromMin(sd.last_age_min)) + '</small></div></div>' +
+      '</div>';
+
+    // ---- Tareas ----
+    var tasks = (Array.isArray(sd.tasks) ? sd.tasks.slice() : [])
+      .sort(function (a, b) { return toNum(a && a.id) - toNum(b && b.id); });
+    var idSet = {};
+    tasks.forEach(function (t) { if (t && t.id != null) idSet[String(t.id)] = true; });
+    var tDone = (sd.tasks_done != null) ? toNum(sd.tasks_done)
+      : tasks.filter(function (t) { return t && String(t.status).toLowerCase() === "completed"; }).length;
+    var tTotal = (sd.tasks_total != null) ? toNum(sd.tasks_total) : tasks.length;
+    var tOpen = (sd.tasks_open != null) ? toNum(sd.tasks_open) : null;
+    var tFrac = tTotal ? clampPct((tDone / tTotal) * 100) : 0;
+
+    html += '<div class="m-group"><div class="m-label">Tareas' +
+      (tTotal ? ' <span class="count">· ' + tDone + '/' + tTotal +
+        (tOpen != null ? ' · ' + tOpen + (tOpen === 1 ? ' abierta' : ' abiertas') : "") + '</span>' : "") + '</div>';
+    if (tasks.length) {
+      html += '<div class="m-progress"><div class="m-progress-top">' +
+        '<span class="m-progress-lbl">' + tDone + ' / ' + tTotal + ' completadas</span>' +
+        '<span class="m-progress-pct tnum">' + fmtPct(tFrac) + '%</span></div>' +
+        '<div class="bar bar--sm"><i style="width:' + tFrac + '%;background:var(--ok)"></i></div></div>';
+      html += '<div class="m-list">';
+      tasks.forEach(function (t) {
+        t = t || {};
+        var stt = String(t.status == null ? "" : t.status).toLowerCase();
+        var strike = (stt === "cancelled") ? ' style="text-decoration:line-through;opacity:.65"' : "";
+        // blockedBy only if that id exists among shown tasks
+        var blockers = (Array.isArray(t.blockedBy) ? t.blockedBy : [])
+          .filter(function (x) { return x != null && x !== "" && idSet[String(x)]; });
+        html += '<div class="m-item">' + statusChip(t.status) +
+          '<div class="txt"><span class="m-wrap"' + strike + '>' + escapeHtml(t.subject || "—") + '</span>' +
+          (blockers.length ? '<div class="m-block">⛔ depende de ' +
+            blockers.map(function (b) { return "#" + escapeHtml(b); }).join(", ") + '</div>' : "") +
+          '</div></div>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div class="m-empty">Sin tareas</div>';
+    }
+    html += '</div>';
+
+    // ---- Subagentes ----
+    var subs = Array.isArray(sd.subagents) ? sd.subagents : [];
+    var subsRunning = (sd.subagents_running != null) ? toNum(sd.subagents_running) : null;
+    html += '<div class="m-group"><div class="m-label">Subagentes' +
+      ' <span class="count">· ' + subs.length +
+      (subsRunning != null ? ' · ' + subsRunning + ' en curso' : "") + '</span></div>';
+    if (subs.length) {
+      html += '<div class="m-list">';
+      subs.forEach(function (sa) {
+        sa = sa || {};
+        html += '<div class="m-item">' +
+          '<span class="type-badge">' + escapeHtml(sa.type || "—") + '</span>' +
+          '<div class="txt">' + escapeHtml(sa.desc || "") + '</div>' +
+          statusChip(sa.status) + '</div>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div class="m-empty">Sin subagentes</div>';
+    }
+    html += '</div>';
+
+    // ---- Workflows ----
+    var wfs = Array.isArray(sd.workflows) ? sd.workflows : [];
+    if (wfs.length) {
+      var wfRunning = (sd.workflows_running != null) ? toNum(sd.workflows_running)
+        : wfs.filter(function (w) { return w && String(w.status).toLowerCase() === "running"; }).length;
+      html += '<div class="m-group"><div class="m-label">Workflows' +
+        (wfRunning > 0 ? ' <span class="count">· ' + wfRunning + ' en curso</span>' : "") + '</div>';
+      html += '<div class="m-list">';
+      wfs.forEach(function (w) {
+        w = w || {};
+        var stt = String(w.status == null ? "" : w.status).toLowerCase();
+        var running = (stt === "running" || stt === "in_progress");
+        var done = (stt === "done" || stt === "completed");
+        var failed = (stt === "failed");
+        var phases = Array.isArray(w.phases) ? w.phases : [];
+        var pipeCls = running ? "running" : (done ? "done" : (failed ? "failed" : ""));
+        var cardCls = running ? "running" : (failed ? "failed" : "");
+        var badge = statusChip(w.status);
+        html += '<div class="wf-card' + (cardCls ? " " + cardCls : "") + '">' +
+          '<div class="wf-top"><div class="wf-desc">' + escapeHtml(w.desc || "—") + '</div>' + badge + '</div>';
+        if (phases.length) {
+          html += '<div class="wf-cap">fases del workflow</div>';
+          html += '<div class="wf-pipe' + (pipeCls ? " " + pipeCls : "") + '">';
+          phases.forEach(function (p, i) {
+            if (i > 0) html += '<span class="wf-conn" aria-hidden="true">→</span>';
+            html += '<span class="wf-step">' + escapeHtml(p) + '</span>';
+          });
+          html += '</div>';
+        }
+        html += '</div>';
+      });
+      html += '</div></div>';
+    }
+
+    html += '</div><div class="m-col m-col-activity">';
+
+    // ---- Herramientas — proportional horizontal bars, sorted desc ----
+    var tools = (sd.tools && typeof sd.tools === "object") ? sd.tools : {};
+    var toolKeys = Object.keys(tools);
+    if (toolKeys.length) {
+      toolKeys.sort(function (a, b) { return toNum(tools[b]) - toNum(tools[a]); });
+      var tmax = toNum(tools[toolKeys[0]]) || 1;
+      html += '<div class="m-group"><div class="m-label">Herramientas</div><div class="m-tools">';
+      toolKeys.forEach(function (k) {
+        var v = toNum(tools[k]);
+        var w = clampPct((v / tmax) * 100);
+        html += '<div class="m-tool">' +
+          '<span class="tname">' + escapeHtml(k) + '</span>' +
+          '<span class="tval tnum">' + v + '</span>' +
+          '<div class="bar bar--sm tbar"><i style="width:' + w + '%"></i></div>' +
+          '</div>';
+      });
+      html += '</div></div>';
+    }
+
+    // ---- Actividad reciente (timeline, newest first, relative time) ----
+    // Never silently drop events past a hard cap -- paginate with an exact
+    // count instead ("Cargar 20 más de 60"), so "no hidden detail" holds
+    // while keeping first paint light on slower phones.
+    var tl = Array.isArray(sd.timeline) ? sd.timeline.slice() : [];
+    var tlHtml = "";
+    if (tl.length) {
+      tl.sort(function (a, b) { return (Date.parse((b && b.ts) || "") || 0) - (Date.parse((a && a.ts) || "") || 0); });
+      tlHtml = '<div class="m-group"><div class="m-label">Actividad reciente <span class="count">· ' + tl.length + '</span></div>' +
+        '<div class="m-tl" id="mTl"></div>' +
+        (tl.length > TL_PAGE ? '<button type="button" class="sess-inactive-toggle" id="mTlMore" style="margin-top:8px"></button>' : '') +
+        '</div>';
+    }
+    html += tlHtml;
+    html += '</div>'; // /.m-col-activity
+
+    // Preserve scroll position across the re-render.
+    var body = document.getElementById("modalBody");
+    var prevScroll = body.scrollTop;
+    body.innerHTML = html;
+    body.scrollTop = prevScroll;
+    paintModalHeader(sd);
+    if (tl.length) paintTimeline(tl, TL_PAGE);
+  }
+
+  var TL_PAGE = 20;
+  function tlRow(ev) {
+    ev = ev || {};
+    return '<div class="tl">' +
+      '<span class="tl-time">' + escapeHtml(relShort(ev.ts)) + '</span>' +
+      '<div class="tl-body">' +
+        '<span class="tool-badge" style="align-self:flex-start">' + escapeHtml(ev.tool || "—") + '</span>' +
+        '<span class="tl-brief">' + escapeHtml(ev.brief || "") + '</span>' +
+      '</div></div>';
+  }
+  function paintTimeline(tl, shown) {
+    var tlWrap = document.getElementById("mTl");
+    var more = document.getElementById("mTlMore");
+    if (!tlWrap) return;
+    tlWrap.innerHTML = tl.slice(0, shown).map(tlRow).join("");
+    if (more) {
+      var remaining = tl.length - shown;
+      if (remaining <= 0) { more.style.display = "none"; }
+      else {
+        more.style.display = "";
+        more.textContent = "Cargar " + Math.min(TL_PAGE, remaining) + " más de " + tl.length;
+        more.onclick = function () { paintTimeline(tl, shown + TL_PAGE); };
+      }
+    }
+  }
+
+  // Detail view has its own freshness clock, independent of the page-level
+  // "actualizado hace Ns" chip -- session/<slug>.json refreshes on the fast
+  // ~15s cycle, distinct from the slower official-API-bound page poll.
+  var modalLastFetch = 0;
+  function tickModalFresh() {
+    if (!modalSlug || !modalLastFetch) return;
+    var fresh = document.getElementById("modalFresh");
+    if (!fresh) return;
+    var secs = Math.floor((Date.now() - modalLastFetch) / 1000);
+    fresh.textContent = "detalle actualizado " + (secs < 3 ? "ahora" : "hace " + secs + "s");
+  }
+
+  async function fetchSessionDetail(slug, isRefresh) {
+    if (!isRefresh) document.getElementById("modalBody").innerHTML = modalStateHtml("loading");
+    try {
+      var res = await fetch("./session/" + encodeURIComponent(slug) + ".json", { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      var sd = await res.json();
+      if (modalSlug !== slug) return;
+      modalLastFetch = Date.now();
+      tickModalFresh();
+      renderModalBody(sd);
+    } catch (err) {
+      if (modalSlug !== slug) return;
+      if (isRefresh) return;
+      var body = document.getElementById("modalBody");
+      body.innerHTML = modalStateHtml("err", "No se pudo cargar el detalle (" + err.message + ").");
+      var retry = document.getElementById("modalRetry");
+      if (retry) retry.addEventListener("click", function () { fetchSessionDetail(slug, false); });
+    }
+  }
+
+  function getFocusable() {
+    var modal = document.querySelector("#sessModal .modal");
+    if (!modal) return [];
+    return Array.prototype.slice.call(modal.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    )).filter(function (el) { return !el.disabled && el.offsetParent !== null; });
+  }
+
+  function openSessionModal(slug, seed) {
+    if (!slug) return;
+    modalSlug = slug;
+    modalReturnFocus = document.activeElement;
+
+    // Back button closes the modal (mobile) instead of leaving the page.
+    history.pushState({ claudeModal: true }, "", "#sesion");
+    modalPushed = true;
+
+    var overlay = document.getElementById("sessModal");
+    paintModalHeader(seed || {});
+    overlay.classList.add("show");
+    overlay.setAttribute("aria-hidden", "false");
+
+    // Trap focus: hide background from AT + tab order.
+    var appRoot = document.getElementById("appRoot");
+    appRoot.setAttribute("aria-hidden", "true");
+    try { appRoot.inert = true; } catch (e) {}
+
+    document.body.style.overflow = "hidden";
+    document.getElementById("modalClose").focus();
+
+    fetchSessionDetail(slug, false);
+    if (modalTimer) clearInterval(modalTimer);
+    modalTimer = setInterval(function () { if (modalSlug) fetchSessionDetail(modalSlug, true); }, MODAL_REFRESH_MS);
+  }
+
+  // User-initiated close (×, backdrop, Esc): pop the history entry we pushed.
+  function requestCloseModal() {
+    if (!modalSlug) return;
+    if (modalPushed) { history.back(); }   // triggers popstate -> teardownModal
+    else teardownModal();
+  }
+
+  function teardownModal() {
+    var overlay = document.getElementById("sessModal");
+    if (!modalSlug && !overlay.classList.contains("show")) return;
+    modalSlug = null;
+    modalPushed = false;
+    if (modalTimer) { clearInterval(modalTimer); modalTimer = null; }
+    overlay.classList.remove("show");
+    overlay.setAttribute("aria-hidden", "true");
+
+    var appRoot = document.getElementById("appRoot");
+    appRoot.removeAttribute("aria-hidden");
+    try { appRoot.inert = false; } catch (e) {}
+
+    document.body.style.overflow = "";
+    if (modalReturnFocus && typeof modalReturnFocus.focus === "function") modalReturnFocus.focus();
+    modalReturnFocus = null;
+  }
+
+  document.getElementById("modalClose").addEventListener("click", requestCloseModal);
+  document.getElementById("sessModal").addEventListener("click", function (e) {
+    if (e.target === this) requestCloseModal();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (!modalSlug) return;
+    if (e.key === "Escape") { e.preventDefault(); requestCloseModal(); return; }
+    if (e.key === "Tab") {
+      var f = getFocusable();
+      if (!f.length) return;
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
+  // Mobile back button closes the modal.
+  window.addEventListener("popstate", function () {
+    if (modalSlug) { modalPushed = false; teardownModal(); }
+  });
+
+  /* ---------- boot ---------- */
+  if (location.hash === '#sesion') { try { history.replaceState(null,'',location.pathname+location.search); } catch(e){} } // limpiar hash residual
+  load();
+  setInterval(load, REFRESH_MS);
+  setInterval(tickCountdown, 1000);
+  setInterval(function () { tickAgo(); applyStaleness(); tickModalFresh(); }, 1000);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) load(); });
+})();
+</script>
+</body>
+</html>
