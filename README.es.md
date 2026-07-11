@@ -134,4 +134,4 @@ Hecho por [Breisner Lopez](https://breisner.info) ("Rensi") · [GitHub](https://
 
 [English](README.md) · **Español**
 
-<!-- i18n-sync: README.md@pending-sync -->
+<!-- i18n-sync: README.md@b392931 -->
