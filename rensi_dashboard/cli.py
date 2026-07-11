@@ -7,6 +7,7 @@ who wants their own scheduling (cron, systemd, Task Scheduler by hand).
 """
 import argparse
 import os
+import re
 import subprocess
 import sys
 import time
@@ -190,6 +191,68 @@ def cmd_aggregate(args):
     aggregate.main(fast=args.fast)
 
 
+_TUNNEL_INSTALL_HELP = {
+    "darwin": "brew install cloudflared",
+    "win32": "winget install --id Cloudflare.cloudflared",
+}
+_TUNNEL_URL_RE = re.compile(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com")
+
+
+def cmd_tunnel(args):
+    """Free, no-account-needed public URL via a Cloudflare Quick Tunnel --
+    for showing someone else your live dashboard right now. This is a much
+    bigger exposure than the default localhost-only bind: anyone who has
+    the printed URL (which includes the access token) can view your local
+    Claude Code session data for as long as this command keeps running.
+    Ephemeral by design -- Ctrl+C closes the tunnel; nothing is left
+    listening publicly afterward."""
+    exe = _which("cloudflared")
+    if not exe:
+        hint = _TUNNEL_INSTALL_HELP.get(sys.platform, "see https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/")
+        print("cloudflared no esta instalado.")
+        print("Instalar: " + hint)
+        print("Luego vuelve a correr: rensi-dashboard tunnel")
+        return
+
+    if not _read_pid():
+        print("el dashboard no esta corriendo -- arrancandolo primero...")
+        cmd_start(argparse.Namespace(no_browser=True, foreground=False))
+
+    token = core.get_or_create_token()
+    target = "http://{}:{}".format(core.HOST, core.PORT)
+
+    print()
+    print("=" * 60)
+    print("ATENCION: esto publica tu dashboard en una URL publica")
+    print("temporal (*.trycloudflare.com). Cualquiera con el link de")
+    print("abajo puede ver tus sesiones de Claude Code -- el link ya")
+    print("incluye tu token de acceso. Ctrl+C cierra el tunel; nada")
+    print("queda escuchando publicamente despues de eso.")
+    print("=" * 60)
+    print()
+
+    proc = subprocess.Popen(
+        [exe, "tunnel", "--url", target, "--no-autoupdate"],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+    )
+    printed = False
+    try:
+        for line in proc.stdout:
+            m = _TUNNEL_URL_RE.search(line)
+            if m and not printed:
+                printed = True
+                print("URL publica (temporal):", m.group(0) + "/?t=" + token)
+                print("(Ctrl+C para cerrar el tunel)")
+        proc.wait()
+    except KeyboardInterrupt:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except Exception:
+            proc.kill()
+        print("tunel cerrado")
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="rensi-dashboard")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -214,6 +277,9 @@ def main(argv=None):
     sp = sub.add_parser("aggregate", help="corre un ciclo de agregacion una vez (uso: systemd timer / cron)")
     sp.add_argument("--fast", action="store_true")
     sp.set_defaults(func=cmd_aggregate)
+
+    sp = sub.add_parser("tunnel", help="URL publica temporal (Cloudflare Quick Tunnel, gratis, sin cuenta) para compartir el dashboard en vivo")
+    sp.set_defaults(func=cmd_tunnel)
 
     args = p.parse_args(argv)
     args.func(args)

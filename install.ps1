@@ -5,7 +5,7 @@
 
 $ErrorActionPreference = "Stop"
 $Repo = "breisnerlopez/rensi-claude-dashboard"
-$Tag = "v0.2.0"
+$Tag = "v0.2.1"
 $PkgSpec = "git+https://github.com/$Repo.git@$Tag"
 
 function Log($msg)  { Write-Host "==> $msg" -ForegroundColor Cyan }

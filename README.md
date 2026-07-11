@@ -14,10 +14,11 @@ Claude Code usage, live, self-hosted.
 
 Binds to `127.0.0.1` only by default. Reads local Claude Code transcripts — nothing leaves your machine.
 
-<!-- screenshot: run `rensi-dashboard start`, open http://127.0.0.1:7681, capture the
-     hero gauge + conversation cards, save as .github/assets/screenshot.png, then
-     uncomment the line below. -->
-<!-- ![Rensi Dashboard screenshot](.github/assets/screenshot.png) -->
+![Rensi Dashboard — 5h/weekly limits, live conversations](.github/assets/screenshot-desktop.png)
+
+<sub>Mobile view, in Spanish (the UI follows your browser's language automatically):</sub>
+<br/>
+<img src=".github/assets/screenshot-mobile.png" width="300" alt="Rensi Dashboard mobile view, Spanish" />
 
 A self-hosted dashboard for [Claude Code](https://claude.com/claude-code) usage: official 5-hour and weekly rate limits, per-project token/cost estimates, and a **live view of every running session** — active subagents, workflows and their phases, open goals, and a full tool-use timeline, refreshed independently on a fast ~15s cycle.
 
@@ -52,6 +53,16 @@ Optional, for the official rate-limit percentages (works without it too, in loca
 ```bash
 pipx inject rensi-claude-dashboard claude-monitor
 ```
+
+### Share it live
+
+```bash
+rensi-dashboard tunnel
+```
+
+Prints a temporary public URL (`*.trycloudflare.com`, via [Cloudflare Quick Tunnels](https://developers.cloudflare.com/pages/how-to/preview-with-cloudflare-tunnel/) — free, no account needed) so someone else can watch your live sessions right now. Requires [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) — the command tells you how to install it if it's missing.
+
+⚠️ This is a real, bigger exposure than the localhost-only default: the printed link includes your access token, so **anyone who has it can view your local Claude Code session data** for as long as the command keeps running. It's ephemeral by design — `Ctrl+C` closes the tunnel and nothing is left listening publicly. Don't leave it running unattended, and don't post the link somewhere public.
 
 ## What it shows
 

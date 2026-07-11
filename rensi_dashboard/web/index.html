@@ -810,6 +810,12 @@
 (function () {
   "use strict";
 
+  // Capture the query string BEFORE the token-scrub below wipes it -- ?t=
+  // and ?lang= can arrive together on the same shared link, and the lang
+  // resolver still needs to see ?lang= even though ?t= gets stripped from
+  // the visible URL a few lines down.
+  var _origSearch = location.search;
+
   // The one-time auth handoff (?t=<token>) must never linger visibly in the
   // address bar / browser history / autocomplete once the server has set
   // the session cookie from it -- scrub it before anything else runs.
@@ -825,7 +831,7 @@
   // so a token count never misreads as a comma-decimal number next to a
   // percentage in this data-dense a glance-scannable dashboard.
   var STORE_KEY = "rensi_lang";
-  var qp = new URLSearchParams(location.search).get("lang");   // ?lang=en|es -- cheap override/support-link
+  var qp = new URLSearchParams(_origSearch).get("lang");   // ?lang=en|es -- cheap override/support-link
   var OVERRIDE = qp || localStorage.getItem(STORE_KEY);        // "en" | "es" | null
   var BROWSER_TAG = navigator.language || "en-US";             // full BCP-47, e.g. "es-MX"
   var LANG = OVERRIDE || (BROWSER_TAG.slice(0, 2) === "es" ? "es" : "en");  // "en" is the fallback, not "es"

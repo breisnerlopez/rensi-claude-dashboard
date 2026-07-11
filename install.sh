@@ -6,7 +6,7 @@
 set -euo pipefail
 
 REPO="breisnerlopez/rensi-claude-dashboard"
-TAG="v0.2.0"
+TAG="v0.2.1"
 PKG_SPEC="git+https://github.com/${REPO}.git@${TAG}"
 
 log() { printf '\033[1;36m==>\033[0m %s\n' "$1"; }

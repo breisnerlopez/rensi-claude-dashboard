@@ -14,10 +14,11 @@ Uso de Claude Code, en vivo, autoalojado.
 
 Escucha solo en `127.0.0.1` por defecto. Lee transcripts locales de Claude Code — nada sale de tu máquina.
 
-<!-- screenshot: corre `rensi-dashboard start`, abre http://127.0.0.1:7681, captura
-     el gauge principal + tarjetas de conversación, guarda como
-     .github/assets/screenshot.png y descomenta la línea de abajo. -->
-<!-- ![Captura de Rensi Dashboard](.github/assets/screenshot.png) -->
+![Rensi Dashboard — límites de 5h/semanales, conversaciones en vivo](.github/assets/screenshot-mobile.png)
+
+<sub>Vista de escritorio, en inglés (la interfaz sigue el idioma de tu navegador automáticamente):</sub>
+<br/>
+<img src=".github/assets/screenshot-desktop.png" width="500" alt="Rensi Dashboard vista de escritorio, inglés" />
 
 Dashboard autoalojado para el uso de [Claude Code](https://claude.com/claude-code): límites oficiales de 5 horas y semanales, estimaciones de tokens/costo por proyecto, y una **vista en vivo de cada sesión en curso** — subagentes activos, workflows con sus fases, tareas abiertas y un timeline completo de uso de herramientas, actualizado de forma independiente en un ciclo rápido de ~15s.
 
@@ -52,6 +53,16 @@ Opcional, para los porcentajes oficiales de límite de uso (funciona sin esto ta
 ```bash
 pipx inject rensi-claude-dashboard claude-monitor
 ```
+
+### Compartirlo en vivo
+
+```bash
+rensi-dashboard tunnel
+```
+
+Imprime una URL pública temporal (`*.trycloudflare.com`, vía [Cloudflare Quick Tunnels](https://developers.cloudflare.com/pages/how-to/preview-with-cloudflare-tunnel/) — gratis, sin cuenta) para que alguien más pueda ver tus sesiones en vivo ahora mismo. Necesita [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/) instalado — el comando te dice cómo instalarlo si falta.
+
+⚠️ Esta es una exposición real, mayor que el default de solo-localhost: el link impreso incluye tu token de acceso, así que **cualquiera que lo tenga puede ver tus datos locales de sesiones de Claude Code** mientras el comando siga corriendo. Es efímero a propósito — `Ctrl+C` cierra el túnel y nada queda escuchando públicamente después. No lo dejes corriendo sin supervisión, y no publiques el link en un lugar público.
 
 ## Qué muestra
 
