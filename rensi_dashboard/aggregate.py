@@ -176,8 +176,20 @@ def cm_api():
     installed. Shell-free: no bash/PATH assumptions, so this degrades the
     same way (api_ok=False -> local-estimate-only mode) on Windows, on
     musl/Alpine containers, or wherever the binary simply isn't found --
-    instead of crashing there for an unrelated reason (no bash on PATH)."""
+    instead of crashing there for an unrelated reason (no bash on PATH).
+    Falls back to the conventional `pip install --user`/pipx location
+    (~/.local/bin) if PATH doesn't include it, which is the common case
+    for a bare systemd unit that doesn't inherit an interactive shell's
+    PATH -- shutil.which() alone silently found nothing there."""
     exe = shutil.which("claude-monitor")
+    if not exe:
+        for base in (os.environ.get("HOME"), str(core.CLAUDE_HOME)):
+            if not base:
+                continue
+            cand = os.path.join(base, ".local", "bin", "claude-monitor")
+            if os.path.isfile(cand) and os.access(cand, os.X_OK):
+                exe = cand
+                break
     if not exe:
         return {}, {}, {}, False
     try:

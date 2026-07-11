@@ -1,11 +1,15 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" id="htmlRoot">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="color-scheme" content="dark" />
 <meta name="theme-color" content="#0b0f14" />
-<title>Uso de Claude Code</title>
+<!-- rensi-mark: same rounded-square "R" monogram as the in-app header and the
+     README, hardcoded to the live token values (a favicon is loaded outside
+     the document, so it can't reference CSS custom properties). -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'%3E%3Crect x='1' y='1' width='26' height='26' rx='8' fill='%231a222d' stroke='%237fb4ff' stroke-width='1.5'/%3E%3Ctext x='14' y='19.5' text-anchor='middle' font-family='-apple-system,Helvetica,Arial,sans-serif' font-weight='700' font-size='14' fill='%237fb4ff'%3ER%3C/text%3E%3C/svg%3E" />
+<title>Rensi Dashboard</title>
 <style>
   /* ============================================================
      Design tokens — calm dark theme, mobile-first
@@ -103,13 +107,27 @@
     display: flex; align-items: center; justify-content: space-between;
     gap: 10px; margin-bottom: var(--gap);
   }
-  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  /* Rensi mark — reused byte-identical as the favicon and in the README.
+     Reuses --accent (already the app's live/today color elsewhere) on a
+     static, non-animated tile in a different header position: a
+     deliberate reuse, not a claim that the hue means nothing elsewhere.
+     Do not animate this or move it beside .dot's pulse. */
+  .rensi-mark { flex: none; }
+  .rensi-mark rect { fill: var(--bg-elev-2); stroke: var(--accent); stroke-width: 1.5; }
+  .rensi-mark text { fill: var(--accent); font-family: var(--font); font-weight: 700; font-size: 13px; }
   .brand .dot {
     width: 10px; height: 10px; border-radius: 50%;
     background: var(--ok); box-shadow: 0 0 0 4px var(--ok-soft); flex: none;
   }
   .brand h1 { font-size: 1.05rem; }
   .brand small { display: block; color: var(--text-mute); font-size: .72rem; font-weight: 500; }
+  .lang-switch {
+    background: none; border: 0; padding: 0 0 0 6px; margin: 0;
+    font: inherit; font-size: .72rem; font-weight: 600; color: var(--text-mute);
+    text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+  }
+  .lang-switch:hover, .lang-switch:focus-visible { color: var(--accent); }
 
   .refresh {
     display: flex; align-items: center; gap: 7px;
@@ -597,15 +615,19 @@
   <div id="appRoot">
   <header>
     <div class="brand">
+      <svg class="rensi-mark" width="26" height="26" viewBox="0 0 28 28" aria-hidden="true">
+        <rect x="1" y="1" width="26" height="26" rx="8"></rect>
+        <text x="14" y="19.5" text-anchor="middle">R</text>
+      </svg>
       <span class="dot" id="liveDot"></span>
       <div>
-        <h1>Uso de Claude Code</h1>
-        <small id="genAt">Cargando…</small>
+        <h1>Rensi Dashboard</h1>
+        <small id="genAt">Cargando… <button type="button" class="lang-switch" id="langSwitch" aria-label="Switch language / cambiar idioma"></button></small>
       </div>
     </div>
     <div class="refresh" id="refreshChip">
       <span class="pulse"></span>
-      <span id="ago">actualizado ahora</span>
+      <span id="ago" data-i18n="updatedNow">actualizado ahora</span>
     </div>
     <div class="refresh api-outage" id="apiOutageChip" style="display:none">
       <span id="apiOutageText"></span>
@@ -619,8 +641,8 @@
     <div class="card hero" id="hero">
       <div class="hero-top">
         <span class="label">
-          Bloque de 5 h
-          <span class="official" id="heroOfficial"><span class="glyph"></span>oficial</span>
+          <span data-i18n="block5h">Bloque de 5 h</span>
+          <span class="official" id="heroOfficial"><span class="glyph"></span><span data-i18n="official">oficial</span></span>
         </span>
         <span class="pace-badge" id="paceBadge"><span class="glyph"></span><span id="paceText">—</span></span>
       </div>
@@ -631,7 +653,7 @@
             <circle class="track" cx="76" cy="76" r="62"></circle>
             <circle class="zone" id="gaugeZone" cx="76" cy="76" r="62" style="display:none"></circle>
             <circle class="prog" id="gaugeProg" cx="76" cy="76" r="62"></circle>
-            <line class="marker" id="gaugeMarker" x1="0" y1="0" x2="0" y2="0" style="display:none"><title>ritmo objetivo</title></line>
+            <line class="marker" id="gaugeMarker" x1="0" y1="0" x2="0" y2="0" style="display:none"><title data-i18n="paceTargetTitle">ritmo objetivo</title></line>
             <line class="marker-ceil" id="gaugeCeil" x1="0" y1="0" x2="0" y2="0" style="display:none" role="img"><title>techo sostenible (estimado)</title></line>
           </svg>
           <div class="gauge-center">
@@ -642,11 +664,11 @@
 
         <div class="hero-stats">
           <div class="stat">
-            <div class="k">Tokens del bloque <span class="est">(estimado)</span></div>
+            <div class="k"><span data-i18n="blockTokens">Tokens del bloque</span> <span class="est" data-i18n="estimated">(estimado)</span></div>
             <div class="v tnum" id="heroTokensWrap"><span id="heroTokens">–</span></div>
           </div>
           <div class="stat countdown">
-            <div class="k">Se reinicia en</div>
+            <div class="k" data-i18n="resetsIn">Se reinicia en</div>
             <div class="v tnum" id="heroReset">–</div>
           </div>
         </div>
@@ -659,18 +681,18 @@
 
       <!-- elapsed window bar (secondary; primary pace read is the gauge marker) -->
       <div class="elapsed">
-        <div class="row"><span>Ventana transcurrida</span><span id="elapsedPct">–</span></div>
+        <div class="row"><span data-i18n="windowElapsed">Ventana transcurrida</span><span id="elapsedPct">–</span></div>
         <div class="bar bar--sm"><i id="elapsedBar" style="width:0%;background:var(--text-mute)"></i></div>
       </div>
 
       <div class="forecast-note" id="forecastNote">
         <span>📈</span>
-        <span id="forecastText">Calculando proyección…</span>
+        <span id="forecastText" data-i18n="calculatingProjection">Calculando proyección…</span>
       </div>
 
       <div class="cost-line" id="costLine"></div>
     </div>
-    <p class="caveat"><b>Nota:</b> el % del Bloque de 5 h es <b>oficial</b> (igual que claude.ai). Los tokens y el costo son estimación local.</p>
+    <p class="caveat" id="caveatNote"><b>Nota:</b> el % del Bloque de 5 h es <b>oficial</b> (igual que claude.ai). Los tokens y el costo son estimación local.</p>
   </section>
 
   <!-- SEMANA -->
@@ -678,8 +700,8 @@
     <div class="card weekly" id="weekly">
       <div class="weekly-top">
         <span class="label">
-          Semana · límite (todos los modelos)
-          <span class="official" id="weeklyOfficial"><span class="glyph"></span>oficial</span>
+          <span data-i18n="weekLimit">Semana · límite (todos los modelos)</span>
+          <span class="official" id="weeklyOfficial"><span class="glyph"></span><span data-i18n="official">oficial</span></span>
         </span>
       </div>
       <div class="weekly-main">
@@ -688,7 +710,7 @@
           <div class="weekly-cap" id="weeklyCap">del límite oficial semanal</div>
         </div>
         <div class="weekly-reset">
-          <div class="k">Se restablece</div>
+          <div class="k" data-i18n="resetsAt">Se restablece</div>
           <div class="v tnum" id="weeklyReset">–</div>
           <div class="d" id="weeklyResetDate">–</div>
         </div>
@@ -708,8 +730,8 @@
   <!-- CONVERSACIONES -->
   <section id="sessionsSection">
     <div class="section-head">
-      <h2>Conversaciones</h2>
-      <span class="hint">contexto por conversación</span>
+      <h2 data-i18n="conversations">Conversaciones</h2>
+      <span class="hint" data-i18n="contextPerConversation">contexto por conversación</span>
     </div>
     <div class="card">
       <div class="sess-aggregate" id="sessAggregate"></div>
@@ -720,8 +742,8 @@
   <!-- HOY · bloques -->
   <section>
     <div class="section-head">
-      <h2>Hoy · bloques</h2>
-      <span class="hint">el actual está arriba ↑</span>
+      <h2 data-i18n="todayBlocksHeading">Hoy · bloques</h2>
+      <span class="hint" data-i18n="currentAbove">el actual está arriba ↑</span>
     </div>
     <div class="card">
       <div class="blocks" id="todayBlocks"></div>
@@ -731,8 +753,8 @@
   <!-- ESTA SEMANA -->
   <section>
     <div class="section-head">
-      <h2>Esta semana</h2>
-      <span class="hint">tokens por día</span>
+      <h2 data-i18n="thisWeek">Esta semana</h2>
+      <span class="hint" data-i18n="tokensPerDay">tokens por día</span>
     </div>
     <div class="card">
       <div class="week" id="week"></div>
@@ -745,7 +767,7 @@
     <div class="card">
       <details class="history">
         <summary>
-          <span>Días anteriores</span>
+          <span data-i18n="previousDays">Días anteriores</span>
           <span class="chev">▾</span>
         </summary>
         <div class="hist-list" id="history"></div>
@@ -761,11 +783,11 @@
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalFolder">
       <div class="modal-head">
         <div class="modal-title">
-          <div class="modal-folder" id="modalFolder">Detalle de la conversación</div>
+          <div class="modal-folder" id="modalFolder" data-i18n="conversationDetail">Detalle de la conversación</div>
           <div class="modal-sub" id="modalSub"></div>
           <div class="modal-fresh" id="modalFresh"></div>
         </div>
-        <button type="button" class="modal-close" id="modalClose" aria-label="Cerrar">&times;</button>
+        <button type="button" class="modal-close" id="modalClose" data-i18n-aria="close" aria-label="Cerrar">&times;</button>
       </div>
       <div class="modal-body" id="modalBody"></div>
     </div>
@@ -773,9 +795,12 @@
 
 <script>
 /* ============================================================
-   Claude Code usage dashboard v2 — vanilla JS, no deps.
+   Rensi Dashboard — vanilla JS, no deps.
    Fetches ./data.json + ./session/<slug>.json, auto-refresh 30s.
-   Times rendered in the browser's LOCAL timezone. Locale "es".
+   Times rendered in the browser's LOCAL timezone, and both UI copy and
+   date/time formatting follow the visitor's language (?lang=/localStorage
+   override, else navigator.language, English fallback) -- see STRINGS/t()
+   and the LANG/LOC resolver near the top of this file.
 
    Official (authoritative, matches claude.ai):
      current.pct            -> 5h block %
@@ -792,7 +817,169 @@
     try { history.replaceState(null, "", location.pathname + location.hash); } catch (e) {}
   }
 
-  var LOC = "es";
+  // ---------- language / locale: one resolver drives BOTH UI copy (LANG,
+  // via STRINGS/t()) and Intl date-time formatting (LOC) together, so a
+  // visitor never sees e.g. Spanish button copy next to English-ordered
+  // dates. Numbers stay pinned to a dot decimal separator app-wide
+  // (see fmtTokens/fmtPct/fmtDays below) -- deliberately NOT regionalized,
+  // so a token count never misreads as a comma-decimal number next to a
+  // percentage in this data-dense a glance-scannable dashboard.
+  var STORE_KEY = "rensi_lang";
+  var qp = new URLSearchParams(location.search).get("lang");   // ?lang=en|es -- cheap override/support-link
+  var OVERRIDE = qp || localStorage.getItem(STORE_KEY);        // "en" | "es" | null
+  var BROWSER_TAG = navigator.language || "en-US";             // full BCP-47, e.g. "es-MX"
+  var LANG = OVERRIDE || (BROWSER_TAG.slice(0, 2) === "es" ? "es" : "en");  // "en" is the fallback, not "es"
+  var LOC = OVERRIDE ? (LANG === "es" ? "es" : "en-US") : BROWSER_TAG;      // fed to toLocale*() calls below
+  document.documentElement.lang = LANG;
+  if (qp) { try { localStorage.setItem(STORE_KEY, qp); } catch (e) {} }
+
+  function setLang(lang) {
+    try { localStorage.setItem(STORE_KEY, lang); } catch (e) {}
+    location.reload();
+  }
+
+  // ---------- STRINGS / t() -- inline dict, no library/JSON fetch (matches
+  // this project's "no build step, no framework" architecture). "Rensi
+  // Dashboard" (the <title>/<h1>) is intentionally NOT in here -- it's a
+  // proper name, identical in every language, same treatment as "Claude
+  // Code" elsewhere in this file. Add a language by adding one object below.
+  var STRINGS = {
+    en: {
+      loading: "Loading…", updatedNow: "updated now", updatedAgo: "updated {s}s ago", updatedAgoMin: "updated {m} min ago",
+      dataNotUpdated: "data not updated ({m} min ago)", apiDown: "official API down for {t}",
+      block5h: "5h Block", official: "official", resetsIn: "Resets in", resetsIn2: "in {t}", official5hLimit: "official 5h limit",
+      blockTokens: "Block tokens", estimated: "(estimated)", noOfficialData: "no official data",
+      noOfficial5hNow: "No official 5h block data right now.", earlyEstimate: "Early estimate: numbers are noisy at the start of a block.",
+      windowElapsed: "Window elapsed", calculatingProjection: "Calculating projection…", noProjectionMissing: "No projection: official data missing.",
+      reachLimitIn: "You'll hit <b>100%</b> in ~<b>{t}</b>.", noProjectionYet: "No projection yet.", projectionAt: "Projection: ~{p}% at block close.",
+      apiEquivalent: "≈ API-equivalent value (not billed)", tokEst: "tok · est.",
+      ceilTooltip: "Estimate based on your recent pace (~{p}% per block); the 5h and weekly quotas are different, this is approximate.",
+      paceTargetTitle: "target pace",
+      caveatNote: "<b>Note:</b> the 5h Block % is <b>official</b> (same as claude.ai). Tokens and cost are local estimates.",
+      sustainableUpTo: "Sustainable ≤ <b>~{p}%</b> /block", sustainableFromDay2: "Sustainable ceiling: calculated from day 2 of the week.",
+      pushBlockTo: "You can push this block up to ~{p}% and still make it to end of week.",
+      keepBlocksUnder: "Keep each block under ~{p}% to make it to reset.", lowerBlocksTo: "Lower blocks to ~{p}% or less to avoid running out.",
+      nearLimit: "Near the limit", slowDown: "Slowing down", comfortable: "Comfortable", onPace: "On pace",
+      weekLimit: "Week · limit (all models)", ofOfficialWeeklyLimit: "of official weekly limit", noWeekData: "— no data",
+      noOfficialWeekData: "no official weekly data", resetsAt: "Resets at",
+      autonomyAtPace: "Autonomy at this pace: <b>~{d}</b>", daysLeft: " · {d} left",
+      marginVerdict: "You have margin — you'll reach reset comfortably.", tightVerdict: "It's tight — watch your pace.",
+      overVerdict: "At this pace you'll run out ~{d} before reset.", overVerdictNoData: "At this pace you'll run out before reset.",
+      earlyVerdict: "Week just started — data is still noisy.",
+      projectionOver100: "Projection: you'll hit 100% early.", projectionAtReset: "Projection: you'll end the week at ~{p}%",
+      conversations: "Conversations", contextPerConversation: "context per conversation", currentAbove: "the current one is above ↑",
+      todayBlocksHeading: "Today · blocks", thisWeek: "This week", tokensPerDay: "tokens per day", previousDays: "Previous days",
+      conversationDetail: "Conversation detail", close: "Close",
+      noConversations: "No conversations.", noActiveConversations: "No active conversations.",
+      showInactive: "Show inactive ({n})", hideInactive: "Hide inactive",
+      noEarlierBlocks: "No earlier blocks today · the current block is above ↑", currentBlockAbove: "The current block is above ↑",
+      noData: "no data", noWeekTokenData: "No data for this week.", noEarlierHistory: "No earlier history.",
+      estAbbr: "est.", blockCount: "{n} block", blockCountPl: "{n} blocks",
+      tasks: "{d}/{t} tasks", subagentRunning: "{n} subagent running", subagentsRunning: "{n} subagents running",
+      workflowRunning: "{n} workflow running", workflowsRunning: "{n} workflows running", messagesCount: "{n} message", messagesCountPl: "{n} messages",
+      active: "active", viewConversationDetail: "View detail for conversation {f}",
+      openedInactiveAgo: "opened · inactive {t}", ctxWindowTooltip: "model's context window",
+      sessActiveN: "{n} active session", sessActiveNPl: "{n} active sessions", projectN: "{n} project", projectNPl: "{n} projects",
+      sessionsAgo: "sessions {t} ago",
+      agoMoment: "just now", agoMin: "{m} min ago", agoHour: "{h}h ago", agoDay: "{d}d ago",
+      relNow: "now", relMin: "{m} min", relHour: "{h}h", relDay: "{d}d",
+      dayAbbr: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+      couldNotUpdate: "Couldn't refresh data ({e}). Showing the last known state.",
+      statusCompleted: "completed ✓", statusInProgress: "in progress", statusPending: "pending",
+      statusCancelled: "cancelled", statusFailed: "failed", statusUnknown: "unconfirmed",
+      resetting: "resetting…", error: "Error", retry: "Retry",
+      context: "Context", local: "local", activeSince: "active since", messages: "Messages",
+      lastActivity: "Last activity", goals: "Goals", noGoals: "No goals", open: "{n} open", opened: "{n} open",
+      apiEquivalentShort: "≈ API value (est.)",
+      completedFrac: "{d} / {t} completed", blockedBy: "blocked by",
+      subagents: "Subagents", running: "running", noSubagents: "No subagents",
+      workflows: "Workflows", workflowPhases: "workflow phases", tools: "Tools", recentActivity: "Recent activity",
+      loadMore: "Load {n} more of {t}",
+      detailUpdatedNow: "detail updated now", detailUpdatedAgo: "detail updated {s}s ago",
+      hoursLocalTz: "Times shown in your local timezone", officialLimitsNote: "5h Block and Week = official limits (claude.ai). Tokens, cost and context = local estimates.",
+      starOnGithub: "rensi-claude-dashboard on GitHub ⭐",
+    },
+    es: {
+      loading: "Cargando…", updatedNow: "actualizado ahora", updatedAgo: "actualizado hace {s}s", updatedAgoMin: "actualizado hace {m} min",
+      dataNotUpdated: "datos no actualizados (hace {m} min)", apiDown: "API oficial caída hace {t}",
+      block5h: "Bloque de 5 h", official: "oficial", resetsIn: "Se reinicia en", resetsIn2: "en {t}", official5hLimit: "límite oficial 5 h",
+      blockTokens: "Tokens del bloque", estimated: "(estimado)", noOfficialData: "sin datos oficiales",
+      noOfficial5hNow: "Sin datos oficiales del bloque de 5 h ahora mismo.", earlyEstimate: "Estimación temprana: al inicio del bloque los números son ruidosos.",
+      windowElapsed: "Ventana transcurrida", calculatingProjection: "Calculando proyección…", noProjectionMissing: "Sin proyección: faltan datos oficiales.",
+      reachLimitIn: "Alcanzas el <b>100%</b> en ~<b>{t}</b>.", noProjectionYet: "Sin proyección por ahora.", projectionAt: "Proyección: ~{p}% al cierre del bloque.",
+      apiEquivalent: "≈ valor API equivalente (no facturado)", tokEst: "tok · est.",
+      ceilTooltip: "Estimación a partir de tu ritmo reciente (~{p}% por bloque); los cupos de 5 h y semanal son distintos, es aproximado.",
+      paceTargetTitle: "ritmo objetivo",
+      caveatNote: "<b>Nota:</b> el % del Bloque de 5 h es <b>oficial</b> (igual que claude.ai). Los tokens y el costo son estimación local.",
+      sustainableUpTo: "Sostenible ≤ <b>~{p}%</b> /bloque", sustainableFromDay2: "Techo sostenible: se calcula desde el día 2 de la semana.",
+      pushBlockTo: "Puedes empujar este bloque hasta ~{p}% y seguir llegando a fin de semana.",
+      keepBlocksUnder: "Mantén cada bloque por debajo de ~{p}% para llegar al reset.", lowerBlocksTo: "Baja a bloques de ~{p}% o menos para no quedarte sin cuota.",
+      nearLimit: "Cerca del límite", slowDown: "Baja el ritmo", comfortable: "Holgado", onPace: "En ritmo",
+      weekLimit: "Semana · límite (todos los modelos)", ofOfficialWeeklyLimit: "del límite oficial semanal", noWeekData: "— sin datos",
+      noOfficialWeekData: "sin datos oficiales de la semana", resetsAt: "Se restablece",
+      autonomyAtPace: "Autonomía a este ritmo: <b>~{d}</b>", daysLeft: " · quedan {d}",
+      marginVerdict: "Vas con margen — llegas al reset con holgura.", tightVerdict: "Vas justo — cuida el ritmo.",
+      overVerdict: "A este ritmo te quedas sin cuota ~{d} antes del reset.", overVerdictNoData: "A este ritmo te quedas sin cuota antes del reset.",
+      earlyVerdict: "Semana recién empieza — datos aún ruidosos.",
+      projectionOver100: "Proyección: terminas al 100% antes de tiempo.", projectionAtReset: "Proyección: terminas la semana en ~{p}%",
+      conversations: "Conversaciones", contextPerConversation: "contexto por conversación", currentAbove: "el actual está arriba ↑",
+      todayBlocksHeading: "Hoy · bloques", thisWeek: "Esta semana", tokensPerDay: "tokens por día", previousDays: "Días anteriores",
+      conversationDetail: "Detalle de la conversación", close: "Cerrar",
+      noConversations: "Sin conversaciones.", noActiveConversations: "Sin conversaciones activas.",
+      showInactive: "Mostrar inactivas ({n})", hideInactive: "Ocultar inactivas",
+      noEarlierBlocks: "Sin bloques anteriores hoy · el bloque en curso está arriba ↑", currentBlockAbove: "El bloque en curso está arriba ↑",
+      noData: "sin datos", noWeekTokenData: "Sin datos de la semana.", noEarlierHistory: "Sin historial anterior.",
+      estAbbr: "est.", blockCount: "{n} bloque", blockCountPl: "{n} bloques",
+      tasks: "{d}/{t} tareas", subagentRunning: "{n} subagente en curso", subagentsRunning: "{n} subagentes en curso",
+      workflowRunning: "{n} workflow en curso", workflowsRunning: "{n} workflows en curso", messagesCount: "{n} mensaje", messagesCountPl: "{n} mensajes",
+      active: "activa", viewConversationDetail: "Ver detalle de la conversación {f}",
+      openedInactiveAgo: "abierta · inactiva {t}", ctxWindowTooltip: "ventana de contexto del modelo",
+      sessActiveN: "{n} sesión activa", sessActiveNPl: "{n} sesiones activas", projectN: "{n} proyecto", projectNPl: "{n} proyectos",
+      sessionsAgo: "sesiones hace {t}",
+      agoMoment: "hace un momento", agoMin: "hace {m} min", agoHour: "hace {h} h", agoDay: "hace {d} d",
+      relNow: "ahora", relMin: "{m} min", relHour: "{h} h", relDay: "{d} d",
+      dayAbbr: ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"],
+      couldNotUpdate: "No se pudo actualizar los datos ({e}). Mostrando lo último conocido.",
+      statusCompleted: "completado ✓", statusInProgress: "en curso", statusPending: "pendiente",
+      statusCancelled: "cancelada", statusFailed: "falló", statusUnknown: "sin confirmar",
+      resetting: "reiniciando…", error: "Error", retry: "Reintentar",
+      context: "Contexto", local: "local", activeSince: "activa desde", messages: "Mensajes",
+      lastActivity: "Última actividad", goals: "Tareas", noGoals: "Sin tareas", open: "{n} abierta", opened: "{n} abiertas",
+      apiEquivalentShort: "≈ valor API (est.)",
+      completedFrac: "{d} / {t} completadas", blockedBy: "depende de",
+      subagents: "Subagentes", running: "en curso", noSubagents: "Sin subagentes",
+      workflows: "Workflows", workflowPhases: "fases del workflow", tools: "Herramientas", recentActivity: "Actividad reciente",
+      loadMore: "Cargar {n} más de {t}",
+      detailUpdatedNow: "detalle actualizado ahora", detailUpdatedAgo: "detalle actualizado hace {s}s",
+      hoursLocalTz: "Horas mostradas en tu zona local", officialLimitsNote: "Bloque de 5 h y Semana = límites oficiales (claude.ai). Tokens, costo y contexto = estimación local.",
+      starOnGithub: "rensi-claude-dashboard en GitHub ⭐",
+    }
+  };
+  function t(key, vars) {
+    var s = (STRINGS[LANG] && STRINGS[LANG][key] != null) ? STRINGS[LANG][key] : (STRINGS.en[key] != null ? STRINGS.en[key] : key);
+    if (vars) {
+      for (var k in vars) { if (Object.prototype.hasOwnProperty.call(vars, k)) s = s.split("{" + k + "}").join(String(vars[k])); }
+    }
+    return s;
+  }
+  function applyI18n() {
+    document.querySelectorAll("[data-i18n]").forEach(function (el) {
+      el.textContent = t(el.getAttribute("data-i18n"));
+    });
+    document.querySelectorAll("[data-i18n-aria]").forEach(function (el) {
+      el.setAttribute("aria-label", t(el.getAttribute("data-i18n-aria")));
+    });
+    // Contains <b> tags -- deliberately not a plain data-i18n (that only
+    // ever sets textContent, which would print the literal "<b>" markup).
+    var caveat = document.getElementById("caveatNote");
+    if (caveat) caveat.innerHTML = t("caveatNote");
+    var genAtEl = document.getElementById("genAt");
+    if (genAtEl && genAtEl.firstChild) genAtEl.firstChild.textContent = t("loading") + " ";
+    var sw = document.getElementById("langSwitch");
+    if (sw) sw.textContent = LANG === "es" ? "EN" : "ES";
+  }
+  var DOW = STRINGS[LANG].dayAbbr;
+
   var REFRESH_MS = 30000;
   var STALE_MS = 3 * 60 * 1000 + 60 * 1000; // aggregator cadence (180s) + slack for slow runs (claude-monitor subprocess timeout up to 20s)
   var API_OUTAGE_MS = 20 * 60 * 1000; // ~6 consecutive claude-monitor failures before flagging a persistent outage (vs a one-off blip)
@@ -800,7 +987,11 @@
   var lastFetchOk = 0;
   var showInactive = false;
 
-  /* ---------- formatting (decimal convention: DOT, app-wide) ---------- */
+  /* ---------- formatting -----------------------------------------------
+     Decimal convention: DOT, app-wide, deliberately NOT regionalized --
+     a comma-decimal locale rendering "1,234" as one-point-two-three-four
+     next to a token count would misread at a glance on a data-dense
+     dashboard. Dates/times DO regionalize, via LOC above. ---------------- */
   function fmtTokens(n) {
     if (n == null || isNaN(n)) return "–";
     var abs = Math.abs(n);
@@ -865,10 +1056,10 @@
   function agoFromMin(min) {
     if (min == null || isNaN(min)) return "–";
     min = Math.max(0, min);
-    if (min < 1) return "hace un momento";
-    if (min < 60) return "hace " + Math.round(min) + " min";
-    if (min < 1440) return "hace " + Math.floor(min / 60) + " h";
-    return "hace " + Math.floor(min / 1440) + " d";
+    if (min < 1) return t("agoMoment");
+    if (min < 60) return t("agoMin", { m: Math.round(min) });
+    if (min < 1440) return t("agoHour", { h: Math.floor(min / 60) });
+    return t("agoDay", { d: Math.floor(min / 1440) });
   }
   // ISO -> short relative "3 min" / "2 h" / "5 d" (timeline)
   function relShort(iso) {
@@ -877,12 +1068,11 @@
     if (isNaN(d)) return "–";
     var s = Math.floor((Date.now() - d.getTime()) / 1000);
     if (s < 0) s = 0;
-    if (s < 60) return "ahora";
-    if (s < 3600) return Math.round(s / 60) + " min";
-    if (s < 86400) return Math.floor(s / 3600) + " h";
-    return Math.floor(s / 86400) + " d";
+    if (s < 60) return t("relNow");
+    if (s < 3600) return t("relMin", { m: Math.round(s / 60) });
+    if (s < 86400) return t("relHour", { h: Math.floor(s / 3600) });
+    return t("relDay", { d: Math.floor(s / 86400) });
   }
-  var DOW = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
   function weekday(dateStr) { var d = parseDate(dateStr); return d ? DOW[d.getDay()] : ""; }
   function dayNum(dateStr) { var d = parseDate(dateStr); return d ? d.getDate() : ""; }
   function parseDate(s) {
@@ -929,13 +1119,18 @@
 
   /* ---------- pace / state color ---------- */
   // Gauge color by pace: holgado=green · en ritmo=neutral · baja el ritmo=amber · >=95%=red.
+  // NB: the backend (aggregate.py) still emits pace_label as Spanish prose
+  // ("baja el ritmo"/"holgado"/"en ritmo"), matched here by substring --
+  // display text is regionalized via t(), the match keys themselves are a
+  // known backend cleanup left for later (would need an aggregate.py change
+  // to emit a real enum instead of Spanish text).
   function paceState(cur) {
     var pct = cur && cur.pct != null ? cur.pct : 0;
     var label = (cur && cur.pace_label ? cur.pace_label : "").toLowerCase();
-    if (pct >= 95) return { color: "var(--danger)", soft: "var(--danger-soft)", text: "Cerca del límite", show: true };
-    if (label.indexOf("baja") !== -1) return { color: "var(--warn)", soft: "var(--warn-soft)", text: "Baja el ritmo", show: true };
-    if (label.indexOf("holgado") !== -1) return { color: "var(--ok)", soft: "var(--ok-soft)", text: "Holgado", show: true };
-    if (label.indexOf("ritmo") !== -1) return { color: "var(--accent)", soft: "var(--accent-soft)", text: "En ritmo", show: true };
+    if (pct >= 95) return { color: "var(--danger)", soft: "var(--danger-soft)", text: t("nearLimit"), show: true };
+    if (label.indexOf("baja") !== -1) return { color: "var(--warn)", soft: "var(--warn-soft)", text: t("slowDown"), show: true };
+    if (label.indexOf("holgado") !== -1) return { color: "var(--ok)", soft: "var(--ok-soft)", text: t("comfortable"), show: true };
+    if (label.indexOf("ritmo") !== -1) return { color: "var(--accent)", soft: "var(--accent-soft)", text: t("onPace"), show: true };
     return { color: "var(--accent)", soft: "var(--accent-soft)", text: "", show: false };
   }
   function barColor(pct) {
@@ -955,10 +1150,10 @@
     var cur = data.current || {};
 
     var gen = data.generated_at ? new Date(data.generated_at) : null;
-    document.getElementById("genAt").textContent =
+    document.getElementById("genAt").firstChild.textContent =
       (gen && !isNaN(gen))
-        ? "Datos: " + gen.toLocaleString(LOC, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
-        : "—";
+        ? gen.toLocaleString(LOC, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) + " "
+        : "— ";
 
     renderHero(cur);
     renderWeekly(cur);
@@ -968,13 +1163,12 @@
     renderHistory(data);
     applyStaleness();
 
-    var tz = data.tz ? " · fuente " + data.tz : "";
+    var tz = data.tz ? " · " + data.tz : "";
     document.getElementById("footer").innerHTML =
-      "Horas mostradas en tu zona local" + escapeHtml(tz) +
-      '<span class="fnote">Bloque de 5 h y Semana = límites oficiales (claude.ai). ' +
-      'Tokens, costo y contexto = estimación local.</span>' +
+      escapeHtml(t("hoursLocalTz")) + escapeHtml(tz) +
+      '<span class="fnote">' + escapeHtml(t("officialLimitsNote")) + '</span>' +
       '<span class="fnote"><a href="https://github.com/breisnerlopez/rensi-claude-dashboard" ' +
-      'target="_blank" rel="noopener" class="gh-star">rensi-claude-dashboard en GitHub ⭐</a></span>';
+      'target="_blank" rel="noopener" class="gh-star">' + escapeHtml(t("starOnGithub")) + '</a></span>';
   }
 
   function renderHero(cur) {
@@ -999,21 +1193,21 @@
       prog.style.stroke = "var(--text-mute)";
       wrap.className = "pct tnum nodata";
       wrap.textContent = "—";
-      cap.textContent = "sin datos oficiales";
+      cap.textContent = t("noOfficialData");
       pill.style.display = "none";
       warn.classList.add("show");
-      warnText.textContent = "Sin datos oficiales del bloque de 5 h ahora mismo.";
+      warnText.textContent = t("noOfficial5hNow");
       hero.style.setProperty("--hero-glow", "var(--warn-soft)");
     } else {
       prog.style.stroke = st.color;
       wrap.className = "pct tnum";
       wrap.innerHTML = '<span id="heroPct">' + fmtPct(clampPct(pctVal)) + '</span><span class="unit">%</span>';
-      cap.textContent = "límite oficial 5 h";
+      cap.textContent = t("official5hLimit");
       pill.style.display = "inline-flex";
       hero.style.setProperty("--hero-glow", st.soft);
       if (cur.low_confidence === true) {
         warn.classList.add("show");
-        warnText.textContent = "Estimación temprana: al inicio del bloque los números son ruidosos.";
+        warnText.textContent = t("earlyEstimate");
       } else {
         warn.classList.remove("show");
       }
@@ -1057,22 +1251,21 @@
       ceilMk.setAttribute("y2", (cy + cout * Math.sin(cth)).toFixed(2));
       ceilMk.style.display = "";
       var basis = (w.ceiling_basis_pct != null && !isNaN(w.ceiling_basis_pct)) ? fmtPct(w.ceiling_basis_pct) : "?";
-      var tip = "Estimación a partir de tu ritmo reciente (~" + basis +
-        "% por bloque); los cupos de 5 h y semanal son distintos, es aproximado.";
+      var tip = t("ceilTooltip", { p: basis });
       ceilMk.setAttribute("aria-label", tip);
       var titleEl = ceilMk.querySelector("title");
       if (titleEl) titleEl.textContent = tip;
 
       var sentence = "";
       switch (w.status) {
-        case "under": sentence = "Puedes empujar este bloque hasta ~" + fmtPct(ceilPct) + "% y seguir llegando a fin de semana."; break;
-        case "on":    sentence = "Mantén cada bloque por debajo de ~" + fmtPct(ceilPct) + "% para llegar al reset."; break;
-        case "over":  sentence = "Baja a bloques de ~" + fmtPct(ceilPct) + "% o menos para no quedarte sin cuota."; break;
+        case "under": sentence = t("pushBlockTo", { p: fmtPct(ceilPct) }); break;
+        case "on":    sentence = t("keepBlocksUnder", { p: fmtPct(ceilPct) }); break;
+        case "over":  sentence = t("lowerBlocksTo", { p: fmtPct(ceilPct) }); break;
         default:      sentence = "";
       }
       ceilBlock.className = "ceil-block";
       ceilBlock.innerHTML =
-        '<div class="ceil-cap"><span class="swatch"></span>Sostenible ≤ <b>~' + fmtPct(ceilPct) + '%</b> /bloque</div>' +
+        '<div class="ceil-cap"><span class="swatch"></span>' + t("sustainableUpTo", { p: fmtPct(ceilPct) }) + '</div>' +
         (sentence ? '<div class="ceil-sentence">' + escapeHtml(sentence) + '</div>' : '');
       ceilBlock.style.display = "";
     } else {
@@ -1080,7 +1273,7 @@
       ceilMk.style.display = "none";
       if (official && wOfficial && w.status === "early") {
         ceilBlock.className = "ceil-block hint";
-        ceilBlock.innerHTML = '<div class="ceil-hint">Techo sostenible: se calcula desde el día 2 de la semana.</div>';
+        ceilBlock.innerHTML = '<div class="ceil-hint">' + escapeHtml(t("sustainableFromDay2")) + '</div>';
         ceilBlock.style.display = "";
       } else {
         ceilBlock.style.display = "none";
@@ -1090,7 +1283,7 @@
 
     // tokens del bloque
     var tokEl = document.getElementById("heroTokensWrap");
-    tokEl.innerHTML = fmtTokens(cur.tokens_active) + ' <small>tok · est.</small>';
+    tokEl.innerHTML = fmtTokens(cur.tokens_active) + ' <small>' + escapeHtml(t("tokEst")) + '</small>';
 
     // pace chip — single source of truth
     var badge = document.getElementById("paceBadge");
@@ -1117,20 +1310,20 @@
     note.classList.remove("warn");
     var eta = cur.eta || null;
     if (!official) {
-      fn.textContent = "Sin proyección: faltan datos oficiales.";
+      fn.textContent = t("noProjectionMissing");
     } else if (eta && eta.exhaust_in_min != null && !isNaN(eta.exhaust_in_min)) {
       note.classList.add("warn");
-      fn.innerHTML = "Alcanzas el <b>100%</b> en ~<b>" + escapeHtml(fmtMins(eta.exhaust_in_min)) + "</b>.";
+      fn.innerHTML = t("reachLimitIn", { t: escapeHtml(fmtMins(eta.exhaust_in_min)) });
     } else if (eta && eta.projected_end_pct != null && !isNaN(eta.projected_end_pct)) {
-      fn.innerHTML = "Proyección: ~<b>" + fmtPct(eta.projected_end_pct) + "%</b> al cierre del bloque.";
+      fn.innerHTML = t("projectionAt", { p: fmtPct(eta.projected_end_pct) }).replace(/~(\S+)%/, "~<b>$1%</b>");
     } else {
-      fn.textContent = "Sin proyección por ahora.";
+      fn.textContent = t("noProjectionYet");
     }
 
     // cost — de-emphasized, whole dollars, not a bill
     var costLine = document.getElementById("costLine");
     if (cur.cost_usd != null && !isNaN(cur.cost_usd)) {
-      costLine.innerHTML = "<b>" + fmtMoney(cur.cost_usd) + "</b> · ≈ valor API equivalente (no facturado)";
+      costLine.innerHTML = "<b>" + fmtMoney(cur.cost_usd) + "</b> · " + escapeHtml(t("apiEquivalent"));
     } else {
       costLine.textContent = "";
     }
@@ -1148,14 +1341,14 @@
 
     if (!official) {
       pctWrap.className = "weekly-pct tnum nodata";
-      pctWrap.textContent = "— sin datos";
-      capEl.textContent = "sin datos oficiales de la semana";
+      pctWrap.textContent = t("noWeekData");
+      capEl.textContent = t("noOfficialWeekData");
       pill.style.display = "none";
       bar.style.width = "0%";
     } else {
       pctWrap.className = "weekly-pct tnum";
       pctWrap.innerHTML = '<span>' + fmtPct(clampPct(w.pct)) + '</span><span class="unit">%</span>';
-      capEl.textContent = "del límite oficial semanal";
+      capEl.textContent = t("ofOfficialWeeklyLimit");
       pill.style.display = "inline-flex";
       bar.style.width = clampPct(w.pct) + "%";
     }
@@ -1181,9 +1374,8 @@
       var line = document.getElementById("wkRunwayLine");
       if (runway != null || daysLeft != null) {
         line.style.display = "";
-        line.innerHTML = "Autonomía a este ritmo: <b>~" +
-          escapeHtml(runway != null ? fmtDays(runway) : "–") + "</b>" +
-          (daysLeft != null ? " · quedan " + escapeHtml(fmtDays(daysLeft)) : "");
+        line.innerHTML = t("autonomyAtPace", { d: escapeHtml(runway != null ? fmtDays(runway) : "–") }) +
+          (daysLeft != null ? escapeHtml(t("daysLeft", { d: fmtDays(daysLeft) })) : "");
       } else { line.style.display = "none"; }
 
       // slim two-tone bar: runway_days vs days_left
@@ -1207,17 +1399,17 @@
       var verdict = document.getElementById("wkVerdict");
       var vtext = "";
       switch (status) {
-        case "under": vtext = "Vas con margen — llegas al reset con holgura."; break;
-        case "on":    vtext = "Vas justo — cuida el ritmo."; break;
+        case "under": vtext = t("marginVerdict"); break;
+        case "on":    vtext = t("tightVerdict"); break;
         case "over":
           if (runway != null && daysLeft != null) {
             var deficit = Math.max(0.1, Math.round((daysLeft - runway) * 10) / 10);
-            vtext = "A este ritmo te quedas sin cuota ~" + trim(deficit) + " d antes del reset.";
+            vtext = t("overVerdict", { d: trim(deficit) + " d" });
           } else {
-            vtext = "A este ritmo te quedas sin cuota antes del reset.";
+            vtext = t("overVerdictNoData");
           }
           break;
-        case "early": vtext = "Semana recién empieza — datos aún ruidosos."; break;
+        case "early": vtext = t("earlyVerdict"); break;
         default: vtext = "";
       }
       if (vtext) {
@@ -1232,10 +1424,10 @@
         projEl.style.display = "";
         if (proj >= 100) {
           projEl.className = "wk-proj over";
-          projEl.textContent = "Proyección: terminas al 100% antes de tiempo.";
+          projEl.textContent = t("projectionOver100");
         } else {
           projEl.className = "wk-proj";
-          projEl.textContent = "Proyección: terminas la semana en ~" + fmtPct(proj) + "%";
+          projEl.textContent = t("projectionAtReset", { p: fmtPct(proj) });
         }
       } else { projEl.style.display = "none"; }
     }
@@ -1248,14 +1440,14 @@
     if (!d) return "";
     var parts = [];
     var tt = toNum(d.tasks_total), td = toNum(d.tasks_done);
-    if (tt > 0) parts.push(td + "/" + tt + " tareas");
+    if (tt > 0) parts.push(t("tasks", { d: td, t: tt }));
     var sr = toNum(d.subagents_running);
-    if (sr > 0) parts.push(sr + (sr === 1 ? " subagente en curso" : " subagentes en curso"));
+    if (sr > 0) parts.push(t(sr === 1 ? "subagentRunning" : "subagentsRunning", { n: sr }));
     var wr = toNum(d.workflows_running);
-    if (wr > 0) parts.push(wr + (wr === 1 ? " workflow en curso" : " workflows en curso"));
+    if (wr > 0) parts.push(t(wr === 1 ? "workflowRunning" : "workflowsRunning", { n: wr }));
     if (!parts.length) {
       var msgs = toNum(d.messages);
-      if (msgs > 0) parts.push(msgs + (msgs === 1 ? " mensaje" : " mensajes"));
+      if (msgs > 0) parts.push(t(msgs === 1 ? "messagesCount" : "messagesCountPl", { n: msgs }));
     }
     return parts.join(" · ");
   }
@@ -1275,8 +1467,8 @@
     var lastTxt;
     if (active) {
       lastTxt = (ageMin != null && ageMin > 15)
-        ? "abierta · inactiva " + agoFromMin(ageMin)
-        : "activa · " + agoFromMin(ageMin != null ? ageMin : 0);
+        ? t("openedInactiveAgo", { t: agoFromMin(ageMin) })
+        : t("active") + " · " + agoFromMin(ageMin != null ? ageMin : 0);
     } else {
       lastTxt = agoFromMin(ageMin);
     }
@@ -1285,9 +1477,9 @@
     div.className = "sess clickable" + (active ? " active" : " idle");
     div.setAttribute("role", "button");
     div.setAttribute("tabindex", "0");
-    div.setAttribute("aria-label", "Ver detalle de la conversación " + folder);
+    div.setAttribute("aria-label", t("viewConversationDetail", { f: folder }));
 
-    var badge = active ? '<span class="badge activa"><span class="glyph"></span>activa</span>' : "";
+    var badge = active ? '<span class="badge activa"><span class="glyph"></span>' + escapeHtml(t("active")) + '</span>' : "";
     var statusLine = sessionStatusLine(d);
 
     div.innerHTML =
@@ -1295,7 +1487,7 @@
         '<div class="sess-id">' +
           '<span class="sess-folder">' + escapeHtml(folder) + '</span>' +
           '<span class="sess-model">' + escapeHtml(shortModel(s.model)) + '</span>' +
-          (win ? '<span class="ctx-badge" title="ventana de contexto del modelo">' + escapeHtml(ctxWindowLabel(win)) + ' ctx</span>' : "") +
+          (win ? '<span class="ctx-badge" title="' + escapeHtml(t("ctxWindowTooltip")) + '">' + escapeHtml(ctxWindowLabel(win)) + ' ctx</span>' : "") +
         '</div>' +
         '<div class="sess-right">' +
           badge +
@@ -1331,14 +1523,14 @@
       wfN += toNum(d.workflows_running);
     });
     var parts = [];
-    parts.push(activeN + (activeN === 1 ? " sesión activa" : " sesiones activas"));
-    if (subN > 0) parts.push(subN + (subN === 1 ? " subagente en curso" : " subagentes en curso"));
-    if (wfN > 0) parts.push(wfN + (wfN === 1 ? " workflow en curso" : " workflows en curso"));
-    parts.push(list.length + (list.length === 1 ? " proyecto" : " proyectos"));
+    parts.push(t(activeN === 1 ? "sessActiveN" : "sessActiveNPl", { n: activeN }));
+    if (subN > 0) parts.push(t(subN === 1 ? "subagentRunning" : "subagentsRunning", { n: subN }));
+    if (wfN > 0) parts.push(t(wfN === 1 ? "workflowRunning" : "workflowsRunning", { n: wfN }));
+    parts.push(t(list.length === 1 ? "projectN" : "projectNPl", { n: list.length }));
     var freshTxt = "";
     if (data.sessions_generated_at) {
       var age = Math.floor((Date.now() - new Date(data.sessions_generated_at).getTime()) / 1000);
-      if (!isNaN(age) && age >= 0) freshTxt = "sesiones hace " + (age < 60 ? age + "s" : Math.floor(age / 60) + " min");
+      if (!isNaN(age) && age >= 0) freshTxt = t("sessionsAgo", { t: (age < 60 ? age + "s" : Math.floor(age / 60) + " min") });
     }
     el.innerHTML = escapeHtml(parts.join(" · ")) + (freshTxt ? '<span class="fresh">' + escapeHtml(freshTxt) + '</span>' : "");
   }
@@ -1348,7 +1540,7 @@
     wrap.innerHTML = "";
     var list = Array.isArray(data.sessions) ? data.sessions.slice() : [];
     renderAggregateStrip(data, list);
-    if (!list.length) { wrap.innerHTML = '<div class="empty">Sin conversaciones.</div>'; return; }
+    if (!list.length) { wrap.innerHTML = '<div class="empty">' + escapeHtml(t("noConversations")) + '</div>'; return; }
 
     function byRecent(a, b) {
       var aa = (a.last_age_min != null) ? a.last_age_min : 1e9;
@@ -1363,7 +1555,7 @@
     } else {
       var note = document.createElement("div");
       note.className = "empty";
-      note.textContent = "Sin conversaciones activas.";
+      note.textContent = t("noActiveConversations");
       wrap.appendChild(note);
     }
 
@@ -1379,7 +1571,7 @@
 
       function paintToggle() {
         toggleBtn.innerHTML = "<span>" +
-          (showInactive ? "Ocultar inactivas" : "Mostrar inactivas (" + inactiveList.length + ")") +
+          escapeHtml(showInactive ? t("hideInactive") : t("showInactive", { n: inactiveList.length })) +
           '</span><span class="chev" aria-hidden="true">▾</span>';
       }
       paintToggle();
@@ -1400,13 +1592,13 @@
     wrap.innerHTML = "";
 
     if (!blocks.length) {
-      wrap.innerHTML = '<div class="blocks-hint">Sin bloques anteriores hoy · el bloque en curso está arriba ↑</div>';
+      wrap.innerHTML = '<div class="blocks-hint">' + escapeHtml(t("noEarlierBlocks")) + '</div>';
       return;
     }
 
     var hint = document.createElement("div");
     hint.className = "blocks-hint";
-    hint.textContent = "El bloque en curso está arriba ↑";
+    hint.textContent = t("currentBlockAbove");
     wrap.appendChild(hint);
 
     blocks.forEach(function (b) {
@@ -1415,16 +1607,16 @@
       var estimated = !!b.estimated;
       var div = document.createElement("div");
       div.className = "block";
-      var estTag = estimated ? ' <span class="est">est.</span>' : "";
+      var estTag = estimated ? ' <span class="est">' + escapeHtml(t("estAbbr")) + '</span>' : "";
       var pctHtml = hasPct
         ? fmtPct(clampPct(pct)) + '%' + estTag
-        : '<span style="color:var(--text-mute)">sin datos</span>';
+        : '<span style="color:var(--text-mute)">' + escapeHtml(t("noData")) + '</span>';
       var barColorVal = hasPct ? barColor(pct) : "var(--text-mute)";
       div.innerHTML =
         '<div class="block-head">' +
           '<div>' +
             '<div class="block-time"><span class="rng">' + escapeHtml(fmtTime(b.start)) + "–" + escapeHtml(fmtTime(b.end)) + '</span></div>' +
-            '<div class="block-meta">' + fmtTokens(b.tokens) + ' tokens · ' + fmtMoney(b.cost_usd) + ' est.</div>' +
+            '<div class="block-meta">' + fmtTokens(b.tokens) + ' tokens · ' + fmtMoney(b.cost_usd) + ' ' + escapeHtml(t("estAbbr")) + '</div>' +
           '</div>' +
           '<div class="block-pct tnum" style="color:' + barColorVal + '">' + pctHtml + '</div>' +
         '</div>' +
@@ -1439,7 +1631,7 @@
     wrap.innerHTML = "";
     detail.className = "day-detail";
     var week = Array.isArray(data.week) ? data.week.slice() : [];
-    if (!week.length) { wrap.innerHTML = '<div class="empty" style="grid-column:1/-1">Sin datos de la semana.</div>'; return; }
+    if (!week.length) { wrap.innerHTML = '<div class="empty" style="grid-column:1/-1">' + escapeHtml(t("noWeekTokenData")) + '</div>'; return; }
 
     var max = Math.max.apply(null, week.map(function (d) { return d.tokens || 0; })) || 1;
     var todayStr = data.today;
@@ -1463,8 +1655,8 @@
         detail.innerHTML =
           '<b>' + weekday(d.date) + " " + dayNum(d.date) + '</b> · ' +
           '<b>' + fmtTokens(d.tokens) + '</b> tokens · ' +
-          '<b>' + fmtMoney(d.cost_usd) + '</b> est. · ' +
-          (d.blocks || 0) + ' bloque' + ((d.blocks === 1) ? "" : "s");
+          '<b>' + fmtMoney(d.cost_usd) + '</b> ' + escapeHtml(t("estAbbr")) + ' · ' +
+          escapeHtml(t((d.blocks === 1) ? "blockCount" : "blockCountPl", { n: d.blocks || 0 }));
         detail.classList.add("show");
       });
       wrap.appendChild(btn);
@@ -1475,7 +1667,7 @@
     var wrap = document.getElementById("history");
     wrap.innerHTML = "";
     var hist = Array.isArray(data.history) ? data.history.slice() : [];
-    if (!hist.length) { wrap.innerHTML = '<div class="empty">Sin historial anterior.</div>'; return; }
+    if (!hist.length) { wrap.innerHTML = '<div class="empty">' + escapeHtml(t("noEarlierHistory")) + '</div>'; return; }
     hist.sort(function (a, b) { return (a.date < b.date ? 1 : -1); });
     var max = Math.max.apply(null, hist.map(function (d) { return d.tokens || 0; })) || 1;
 
@@ -1486,7 +1678,7 @@
       row.innerHTML =
         '<div class="hd">' + weekday(d.date) + " " + dayNum(d.date) + '</div>' +
         '<div class="bar bar--sm hbar"><i style="width:' + w + '%"></i></div>' +
-        '<div class="hv tnum">' + fmtTokens(d.tokens) + ' <small>· ' + fmtMoney(d.cost_usd) + ' est.</small></div>';
+        '<div class="hv tnum">' + fmtTokens(d.tokens) + ' <small>· ' + fmtMoney(d.cost_usd) + ' ' + escapeHtml(t("estAbbr")) + '</small></div>';
       wrap.appendChild(row);
     });
   }
@@ -1503,7 +1695,7 @@
       chip.classList.add("stale");
       hero.classList.add("stale");
       var mins = Math.floor(ageMs / 60000);
-      document.getElementById("ago").textContent = "datos no actualizados (hace " + mins + " min)";
+      document.getElementById("ago").textContent = t("dataNotUpdated", { m: mins });
     } else {
       chip.classList.remove("stale");
       hero.classList.remove("stale");
@@ -1524,7 +1716,7 @@
     if (downMs < API_OUTAGE_MS) { outageChip.style.display = "none"; return; }
     var mins = Math.floor(downMs / 60000);
     var label = mins < 60 ? mins + " min" : Math.floor(mins / 60) + "h " + (mins % 60) + "m";
-    document.getElementById("apiOutageText").textContent = "API oficial caída hace " + label;
+    document.getElementById("apiOutageText").textContent = t("apiDown", { t: label });
     outageChip.style.display = "flex";
   }
 
@@ -1539,7 +1731,7 @@
         if (isNaN(target)) { elReset.textContent = "–"; }
         else {
           var ms = target - Date.now();
-          if (ms <= 0) { elReset.textContent = "reiniciando…"; elReset.style.color = "var(--ok)"; }
+          if (ms <= 0) { elReset.textContent = t("resetting"); elReset.style.color = "var(--ok)"; }
           else { elReset.textContent = fmtDuration(ms); elReset.style.color = ms < 5 * 60 * 1000 ? "var(--warn)" : "var(--text)"; }
         }
       }
@@ -1553,8 +1745,8 @@
         if (isNaN(wt)) { elWeek.textContent = "–"; }
         else {
           var wms = wt - Date.now();
-          if (wms <= 0) { elWeek.textContent = "reiniciando…"; elWeek.style.color = "var(--ok)"; }
-          else { elWeek.textContent = "en " + fmtDuration(wms); elWeek.style.color = "var(--text)"; }
+          if (wms <= 0) { elWeek.textContent = t("resetting"); elWeek.style.color = "var(--ok)"; }
+          else { elWeek.textContent = t("resetsIn2", { t: fmtDuration(wms) }); elWeek.style.color = "var(--text)"; }
         }
       }
     }
@@ -1566,9 +1758,9 @@
     if (chip.classList.contains("stale")) return; // staleness message wins
     var secs = Math.floor((Date.now() - lastFetchOk) / 1000);
     var el = document.getElementById("ago");
-    if (secs < 5) el.textContent = "actualizado ahora";
-    else if (secs < 60) el.textContent = "actualizado hace " + secs + "s";
-    else el.textContent = "actualizado hace " + Math.floor(secs / 60) + " min";
+    if (secs < 5) el.textContent = t("updatedNow");
+    else if (secs < 60) el.textContent = t("updatedAgo", { s: secs });
+    else el.textContent = t("updatedAgoMin", { m: Math.floor(secs / 60) });
   }
 
   /* ---------- fetching ---------- */
@@ -1581,8 +1773,8 @@
       hideBanner();
       render(data);
     } catch (err) {
-      showBanner("No se pudo actualizar los datos (" + err.message + "). Mostrando lo último conocido.");
-      if (!lastData) document.getElementById("genAt").textContent = "sin datos";
+      showBanner(t("couldNotUpdate", { e: err.message }));
+      if (!lastData) document.getElementById("genAt").firstChild.textContent = t("noData");
     }
     tickAgo();
   }
@@ -1603,41 +1795,43 @@
     cancelled: "st-cancelled", done: "st-done", running: "st-running", failed: "st-failed",
     unknown: "st-unknown"
   };
-  // Unified vocabulary: running -> "en curso" everywhere; done/completed always carry the checkmark.
-  // "unknown" (backend marks a subagent/workflow stale after 30min with no session activity)
-  // is deliberately never rendered as the literal English word -- shape (dashed/hollow), not
-  // just color, signals "uncertain" rather than "settled".
-  var STATUS_LABEL = {
-    completed: "completado ✓", in_progress: "en curso", pending: "pendiente",
-    cancelled: "cancelada", done: "completado ✓", running: "en curso", failed: "falló",
-    unknown: "sin confirmar"
+  // Unified vocabulary: running -> "en curso"/"in progress" everywhere; done/completed
+  // always carry the checkmark. "unknown" (backend marks a subagent/workflow stale
+  // after 30min with no session activity) is deliberately never rendered as the
+  // literal English word -- shape (dashed/hollow), not just color, signals
+  // "uncertain" rather than "settled". Labels come from STRINGS/t(), not a
+  // separate per-language map, so status text always tracks the active language.
+  var STATUS_LABEL_KEY = {
+    completed: "statusCompleted", in_progress: "statusInProgress", pending: "statusPending",
+    cancelled: "statusCancelled", done: "statusCompleted", running: "statusInProgress", failed: "statusFailed",
+    unknown: "statusUnknown"
   };
   function statusChip(status) {
     var s = String(status == null ? "" : status).toLowerCase();
     var cls = STATUS_CLASS[s] || "st-pending";
-    var label = STATUS_LABEL[s] || (s || "—");
+    var label = STATUS_LABEL_KEY[s] ? t(STATUS_LABEL_KEY[s]) : (s || "—");
     return '<span class="status-chip ' + cls + '"><span class="glyph"></span>' + escapeHtml(label) + '</span>';
   }
 
   function modalStateHtml(kind, msg) {
     if (kind === "loading") {
-      return '<div class="modal-state"><div class="spinner"></div>' + escapeHtml(msg || "Cargando…") + '</div>';
+      return '<div class="modal-state"><div class="spinner"></div>' + escapeHtml(msg || t("loading")) + '</div>';
     }
-    return '<div class="modal-state err">' + escapeHtml(msg || "Error") +
-      '<div><button type="button" class="modal-retry" id="modalRetry">Reintentar</button></div></div>';
+    return '<div class="modal-state err">' + escapeHtml(msg || t("error")) +
+      '<div><button type="button" class="modal-retry" id="modalRetry">' + escapeHtml(t("retry")) + '</button></div></div>';
   }
 
   function paintModalHeader(sd) {
     var folder = (sd && sd.folder) || "—";
     var active = !!(sd && sd.active);
-    var badge = active ? ' <span class="badge activa"><span class="glyph"></span>activa</span>' : "";
+    var badge = active ? ' <span class="badge activa"><span class="glyph"></span>' + escapeHtml(t("active")) + '</span>' : "";
     document.getElementById("modalFolder").innerHTML = escapeHtml(folder) + badge;
 
     var sub = document.getElementById("modalSub");
     var html = "";
     var model = sd && sd.model ? shortModel(sd.model) : "";
     if (model) html += '<span class="sess-model">' + escapeHtml(model) + '</span>';
-    if (sd && sd.window) html += '<span class="ctx-badge" title="ventana de contexto del modelo">' + escapeHtml(ctxWindowLabel(sd.window)) + ' ctx</span>';
+    if (sd && sd.window) html += '<span class="ctx-badge" title="' + escapeHtml(t("ctxWindowTooltip")) + '">' + escapeHtml(ctxWindowLabel(sd.window)) + ' ctx</span>';
     if (sd && sd.gitBranch) {
       html += '<span class="branch-chip" title="' + escapeHtml(sd.gitBranch) + '">⎇ ' + escapeHtml(sd.gitBranch) + '</span>';
     }
@@ -1659,20 +1853,20 @@
 
     // context bar — labeled with a "local" tag (unlike the official limits)
     html += '<div class="m-ctx">' +
-      '<div class="row"><span class="lbl">Contexto · ' + escapeHtml(winLabel) +
-      ' <span class="localtag">local</span></span>' +
+      '<div class="row"><span class="lbl">' + escapeHtml(t("context")) + ' · ' + escapeHtml(winLabel) +
+      ' <span class="localtag">' + escapeHtml(t("local")) + '</span></span>' +
       '<span class="val" style="color:' + col + '">' + fmtPct(clampPct(pct)) + '%</span></div>' +
       '<div class="bar"><i style="width:' + clampPct(pct) + '%;background:' + col + '"></i></div>' +
       '<div class="row" style="margin-top:6px;margin-bottom:0"><span class="lbl">' +
       fmtTokens(ctx) + ' / ' + fmtTokens(win) + ' tokens</span>' +
-      '<span class="lbl">activa desde ' + escapeHtml(fmtDateTime(sd.first)) + '</span></div>' +
+      '<span class="lbl">' + escapeHtml(t("activeSince")) + ' ' + escapeHtml(fmtDateTime(sd.first)) + '</span></div>' +
       '</div>';
 
     // stat grid
     html += '<div class="m-stats">' +
-      '<div class="m-stat"><div class="k">Mensajes</div><div class="v">' + (sd.messages != null ? toNum(sd.messages) : "–") + '</div></div>' +
-      '<div class="m-stat"><div class="k">≈ valor API (est.)</div><div class="v">' + fmtMoney(sd.cost_usd) + '</div></div>' +
-      '<div class="m-stat"><div class="k">Última actividad</div><div class="v"><small>' + escapeHtml(agoFromMin(sd.last_age_min)) + '</small></div></div>' +
+      '<div class="m-stat"><div class="k">' + escapeHtml(t("messages")) + '</div><div class="v">' + (sd.messages != null ? toNum(sd.messages) : "–") + '</div></div>' +
+      '<div class="m-stat"><div class="k">' + escapeHtml(t("apiEquivalentShort")) + '</div><div class="v">' + fmtMoney(sd.cost_usd) + '</div></div>' +
+      '<div class="m-stat"><div class="k">' + escapeHtml(t("lastActivity")) + '</div><div class="v"><small>' + escapeHtml(agoFromMin(sd.last_age_min)) + '</small></div></div>' +
       '</div>';
 
     // ---- Tareas ----
@@ -1686,40 +1880,40 @@
     var tOpen = (sd.tasks_open != null) ? toNum(sd.tasks_open) : null;
     var tFrac = tTotal ? clampPct((tDone / tTotal) * 100) : 0;
 
-    html += '<div class="m-group"><div class="m-label">Tareas' +
+    html += '<div class="m-group"><div class="m-label">' + escapeHtml(t("goals")) +
       (tTotal ? ' <span class="count">· ' + tDone + '/' + tTotal +
-        (tOpen != null ? ' · ' + tOpen + (tOpen === 1 ? ' abierta' : ' abiertas') : "") + '</span>' : "") + '</div>';
+        (tOpen != null ? ' · ' + escapeHtml(t(tOpen === 1 ? "open" : "opened", { n: tOpen })) : "") + '</span>' : "") + '</div>';
     if (tasks.length) {
       html += '<div class="m-progress"><div class="m-progress-top">' +
-        '<span class="m-progress-lbl">' + tDone + ' / ' + tTotal + ' completadas</span>' +
+        '<span class="m-progress-lbl">' + escapeHtml(t("completedFrac", { d: tDone, t: tTotal })) + '</span>' +
         '<span class="m-progress-pct tnum">' + fmtPct(tFrac) + '%</span></div>' +
         '<div class="bar bar--sm"><i style="width:' + tFrac + '%;background:var(--ok)"></i></div></div>';
       html += '<div class="m-list">';
-      tasks.forEach(function (t) {
-        t = t || {};
-        var stt = String(t.status == null ? "" : t.status).toLowerCase();
+      tasks.forEach(function (tk) {
+        tk = tk || {};
+        var stt = String(tk.status == null ? "" : tk.status).toLowerCase();
         var strike = (stt === "cancelled") ? ' style="text-decoration:line-through;opacity:.65"' : "";
         // blockedBy only if that id exists among shown tasks
-        var blockers = (Array.isArray(t.blockedBy) ? t.blockedBy : [])
+        var blockers = (Array.isArray(tk.blockedBy) ? tk.blockedBy : [])
           .filter(function (x) { return x != null && x !== "" && idSet[String(x)]; });
-        html += '<div class="m-item">' + statusChip(t.status) +
-          '<div class="txt"><span class="m-wrap"' + strike + '>' + escapeHtml(t.subject || "—") + '</span>' +
-          (blockers.length ? '<div class="m-block">⛔ depende de ' +
+        html += '<div class="m-item">' + statusChip(tk.status) +
+          '<div class="txt"><span class="m-wrap"' + strike + '>' + escapeHtml(tk.subject || "—") + '</span>' +
+          (blockers.length ? '<div class="m-block">⛔ ' + escapeHtml(t("blockedBy")) + ' ' +
             blockers.map(function (b) { return "#" + escapeHtml(b); }).join(", ") + '</div>' : "") +
           '</div></div>';
       });
       html += '</div>';
     } else {
-      html += '<div class="m-empty">Sin tareas</div>';
+      html += '<div class="m-empty">' + escapeHtml(t("noGoals")) + '</div>';
     }
     html += '</div>';
 
     // ---- Subagentes ----
     var subs = Array.isArray(sd.subagents) ? sd.subagents : [];
     var subsRunning = (sd.subagents_running != null) ? toNum(sd.subagents_running) : null;
-    html += '<div class="m-group"><div class="m-label">Subagentes' +
+    html += '<div class="m-group"><div class="m-label">' + escapeHtml(t("subagents")) +
       ' <span class="count">· ' + subs.length +
-      (subsRunning != null ? ' · ' + subsRunning + ' en curso' : "") + '</span></div>';
+      (subsRunning != null ? ' · ' + subsRunning + ' ' + escapeHtml(t("running")) : "") + '</span></div>';
     if (subs.length) {
       html += '<div class="m-list">';
       subs.forEach(function (sa) {
@@ -1731,7 +1925,7 @@
       });
       html += '</div>';
     } else {
-      html += '<div class="m-empty">Sin subagentes</div>';
+      html += '<div class="m-empty">' + escapeHtml(t("noSubagents")) + '</div>';
     }
     html += '</div>';
 
@@ -1740,8 +1934,8 @@
     if (wfs.length) {
       var wfRunning = (sd.workflows_running != null) ? toNum(sd.workflows_running)
         : wfs.filter(function (w) { return w && String(w.status).toLowerCase() === "running"; }).length;
-      html += '<div class="m-group"><div class="m-label">Workflows' +
-        (wfRunning > 0 ? ' <span class="count">· ' + wfRunning + ' en curso</span>' : "") + '</div>';
+      html += '<div class="m-group"><div class="m-label">' + escapeHtml(t("workflows")) +
+        (wfRunning > 0 ? ' <span class="count">· ' + wfRunning + ' ' + escapeHtml(t("running")) + '</span>' : "") + '</div>';
       html += '<div class="m-list">';
       wfs.forEach(function (w) {
         w = w || {};
@@ -1756,7 +1950,7 @@
         html += '<div class="wf-card' + (cardCls ? " " + cardCls : "") + '">' +
           '<div class="wf-top"><div class="wf-desc">' + escapeHtml(w.desc || "—") + '</div>' + badge + '</div>';
         if (phases.length) {
-          html += '<div class="wf-cap">fases del workflow</div>';
+          html += '<div class="wf-cap">' + escapeHtml(t("workflowPhases")) + '</div>';
           html += '<div class="wf-pipe' + (pipeCls ? " " + pipeCls : "") + '">';
           phases.forEach(function (p, i) {
             if (i > 0) html += '<span class="wf-conn" aria-hidden="true">→</span>';
@@ -1777,7 +1971,7 @@
     if (toolKeys.length) {
       toolKeys.sort(function (a, b) { return toNum(tools[b]) - toNum(tools[a]); });
       var tmax = toNum(tools[toolKeys[0]]) || 1;
-      html += '<div class="m-group"><div class="m-label">Herramientas</div><div class="m-tools">';
+      html += '<div class="m-group"><div class="m-label">' + escapeHtml(t("tools")) + '</div><div class="m-tools">';
       toolKeys.forEach(function (k) {
         var v = toNum(tools[k]);
         var w = clampPct((v / tmax) * 100);
@@ -1798,7 +1992,7 @@
     var tlHtml = "";
     if (tl.length) {
       tl.sort(function (a, b) { return (Date.parse((b && b.ts) || "") || 0) - (Date.parse((a && a.ts) || "") || 0); });
-      tlHtml = '<div class="m-group"><div class="m-label">Actividad reciente <span class="count">· ' + tl.length + '</span></div>' +
+      tlHtml = '<div class="m-group"><div class="m-label">' + escapeHtml(t("recentActivity")) + ' <span class="count">· ' + tl.length + '</span></div>' +
         '<div class="m-tl" id="mTl"></div>' +
         (tl.length > TL_PAGE ? '<button type="button" class="sess-inactive-toggle" id="mTlMore" style="margin-top:8px"></button>' : '') +
         '</div>';
@@ -1835,7 +2029,7 @@
       if (remaining <= 0) { more.style.display = "none"; }
       else {
         more.style.display = "";
-        more.textContent = "Cargar " + Math.min(TL_PAGE, remaining) + " más de " + tl.length;
+        more.textContent = t("loadMore", { n: Math.min(TL_PAGE, remaining), t: tl.length });
         more.onclick = function () { paintTimeline(tl, shown + TL_PAGE); };
       }
     }
@@ -1850,7 +2044,7 @@
     var fresh = document.getElementById("modalFresh");
     if (!fresh) return;
     var secs = Math.floor((Date.now() - modalLastFetch) / 1000);
-    fresh.textContent = "detalle actualizado " + (secs < 3 ? "ahora" : "hace " + secs + "s");
+    fresh.textContent = secs < 3 ? t("detailUpdatedNow") : t("detailUpdatedAgo", { s: secs });
   }
 
   async function fetchSessionDetail(slug, isRefresh) {
@@ -1955,6 +2149,9 @@
 
   /* ---------- boot ---------- */
   if (location.hash === '#sesion') { try { history.replaceState(null,'',location.pathname+location.search); } catch(e){} } // limpiar hash residual
+  applyI18n();
+  var langSwitchBtn = document.getElementById("langSwitch");
+  if (langSwitchBtn) langSwitchBtn.addEventListener("click", function () { setLang(LANG === "es" ? "en" : "es"); });
   load();
   setInterval(load, REFRESH_MS);
   setInterval(tickCountdown, 1000);

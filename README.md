@@ -1,6 +1,25 @@
-# rensi-claude-dashboard
+<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 28 28'%3E%3Crect x='1' y='1' width='26' height='26' rx='8' fill='%231a222d' stroke='%237fb4ff' stroke-width='1.5'/%3E%3Ctext x='14' y='19.5' text-anchor='middle' font-family='-apple-system,Helvetica,Arial,sans-serif' font-weight='700' font-size='14' fill='%237fb4ff'%3ER%3C/text%3E%3C/svg%3E" width="56" height="56" align="left" alt="" />
 
-A self-hosted, mobile-first dashboard for tracking [Claude Code](https://claude.com/claude-code) usage: official 5-hour and weekly rate limits, per-project token/cost estimates, and a **live view of every running session** — active subagents, workflows and their phases, open tasks/goals, and a full tool-use timeline, refreshed independently on a fast ~15s cycle.
+# Rensi Dashboard
+
+Claude Code usage, live, self-hosted.
+
+**English** · [Español](README.es.md)
+
+<br clear="left"/>
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-4ad99b.svg)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/breisnerlopez/rensi-claude-dashboard?color=7fb4ff)](https://github.com/breisnerlopez/rensi-claude-dashboard/releases/latest)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-bd9bff.svg)](pyproject.toml)
+
+Binds to `127.0.0.1` only by default. Reads local Claude Code transcripts — nothing leaves your machine.
+
+<!-- screenshot: run `rensi-dashboard start`, open http://127.0.0.1:7681, capture the
+     hero gauge + conversation cards, save as .github/assets/screenshot.png, then
+     uncomment the line below. -->
+<!-- ![Rensi Dashboard screenshot](.github/assets/screenshot.png) -->
+
+A self-hosted dashboard for [Claude Code](https://claude.com/claude-code) usage: official 5-hour and weekly rate limits, per-project token/cost estimates, and a **live view of every running session** — active subagents, workflows and their phases, open goals, and a full tool-use timeline, refreshed independently on a fast ~15s cycle.
 
 If you find this useful, **a star helps other people find it** → see the link at the bottom.
 
@@ -36,12 +55,16 @@ pipx inject rensi-claude-dashboard claude-monitor
 
 ## What it shows
 
-- **Bloque de 5h / Semana** — the official rate-limit percentages, straight from Anthropic's usage API (same numbers as claude.ai), with a sustainability projection ("at this pace you have ~N days left").
-- **Conversaciones** — one card per active/recent project: model + version, context-window size and occupancy, cost estimate, and a one-line status ("5/6 tareas · 1 subagente en curso · 1 workflow en curso").
-- **Session detail** (tap/click a card) — full detail for that session: goals/tasks with status and blockers, subagents with their descriptions and state, workflows with their phase pipeline, a tool-use histogram, and a scrollable activity timeline. On a wide screen this opens as a right-anchored panel with an independently-scrolling state column and activity column; on a phone it's a full-bleed sheet.
-- **Hoy / Esta semana / Historial** — token and cost trends over time.
+- **5h Block / Week** — the official rate-limit percentages, straight from Anthropic's usage API (same numbers as claude.ai), with a sustainability projection ("at this pace you have ~N days left").
+- **Conversations** — one card per active/recent project: model + version, context-window size and occupancy, cost estimate, and a one-line status ("5/6 goals · 1 subagent running · 1 workflow running").
+- **Session detail** (tap/click a card) — full detail for that session: goals with status and blockers, subagents with their descriptions and state, workflows with their phase pipeline, a tool-use histogram, and a scrollable activity timeline. On a wide screen this opens as a right-anchored panel with an independently-scrolling state column and activity column; on a phone it's a full-bleed sheet.
+- **Today / This week / History** — token and cost trends over time.
 
-Everything except the two official rate-limit percentages is explicitly labeled as a local estimate.
+Everything except the two official rate-limit percentages is explicitly labeled as a local estimate. The interface follows your browser's language automatically (English/Spanish today — see [Contributing](#contributing) to add another).
+
+## How this differs
+
+claude.ai's own usage page shows your official rate limits — this dashboard shows the same official numbers (it doesn't estimate or guess them) plus what claude.ai doesn't: a live view of what's actually running across your projects right now, and a local, per-project cost/token breakdown. The official percentages come from Anthropic's usage API via the optional [`claude-monitor`](https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor) CLI; without it, the dashboard still works, just without those two numbers.
 
 ## Architecture
 
@@ -93,12 +116,18 @@ Environment variables (all optional, sane defaults everywhere):
 | `DASHBOARD_TZ` | `UTC` | timezone used for day/block boundaries |
 | `DASHBOARD_FULL_INTERVAL` / `DASHBOARD_FAST_INTERVAL` | `180` / `15` (seconds) | in-process scheduler cadence |
 
+## Contributing
+
+This is a small, solo-maintained tool — issues and pull requests are welcome, no process ceremony. To run it locally: `pip install -e .` in a virtualenv, then `rensi-dashboard start --foreground`. See [CONTRIBUTING.md](CONTRIBUTING.md), including how to add a language to the UI (`STRINGS` dict in `rensi_dashboard/web/index.html`).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
 
 ---
 
-Built by [Breisner Lopez](https://breisner.info) · [GitHub](https://github.com/breisnerlopez)
+Built by [Breisner Lopez](https://breisner.info) ("Rensi") · [GitHub](https://github.com/breisnerlopez)
 
 ⭐ **If this is useful to you, starring the repo is the easiest way to say so** — it's how other people find small tools like this.
+
+**English** · [Español](README.es.md)
