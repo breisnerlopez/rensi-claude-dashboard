@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # rensi-claude-dashboard installer (Linux/macOS).
-#   curl -fsSL https://raw.githubusercontent.com/breisnerlopez/rensi-claude-dashboard/main/install.sh | bash
+#   curl -fsSL https://github.com/breisnerlopez/rensi-claude-dashboard/releases/latest/download/install.sh | bash
 # Installs the package via pipx (bootstrapping pipx if needed), registers
 # best-effort autostart, starts the server, and prints the URL to open.
 set -euo pipefail
 
 REPO="breisnerlopez/rensi-claude-dashboard"
-TAG="v0.1.0"
+TAG="v0.1.1"
 PKG_SPEC="git+https://github.com/${REPO}.git@${TAG}"
 
 log() { printf '\033[1;36m==>\033[0m %s\n' "$1"; }

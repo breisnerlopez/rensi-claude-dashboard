@@ -1,11 +1,11 @@
 # rensi-claude-dashboard installer (Windows).
-#   irm https://raw.githubusercontent.com/breisnerlopez/rensi-claude-dashboard/main/install.ps1 | iex
+#   irm https://github.com/breisnerlopez/rensi-claude-dashboard/releases/latest/download/install.ps1 | iex
 # No admin required. Installs Python via winget if missing, bootstraps pipx,
 # installs the package, registers autostart, starts the server.
 
 $ErrorActionPreference = "Stop"
 $Repo = "breisnerlopez/rensi-claude-dashboard"
-$Tag = "v0.1.0"
+$Tag = "v0.1.1"
 $PkgSpec = "git+https://github.com/$Repo.git@$Tag"
 
 function Log($msg)  { Write-Host "==> $msg" -ForegroundColor Cyan }

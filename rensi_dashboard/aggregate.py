@@ -211,12 +211,16 @@ def main(fast=False):
         # Fast path: only re-derive the live sessions/workflows/agents/tasks
         # view (cheap, pure local parsing, no subprocess) and patch it into
         # the existing data.json in place, leaving the official-API-derived
-        # numbers exactly as the last full run left them.
+        # numbers exactly as the last full run left them. If data.json
+        # doesn't exist yet (very first run, in-process scheduler mode where
+        # both threads fire at once), skip rather than write a partial shape
+        # missing "current"/"api_ok" -- let the full pass be the one that
+        # creates the file, so nothing ever briefly reads a truncated one.
         try:
             with open(core.DATA_FILE) as f:
                 data = json.load(f)
         except Exception:
-            data = {}
+            return
         data["sessions"] = sessions_info(summaries)
         data["sessions_generated_at"] = now_utc().isoformat()
         atomic(core.DATA_FILE, data)

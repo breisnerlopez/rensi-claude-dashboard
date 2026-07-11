@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rensi-claude-dashboard"
-version = "0.1.0"
+version = "0.1.1"
 description = "Self-hosted, mobile-first dashboard for Claude Code usage limits + a live sessions/workflows/agents view"
 readme = "README.md"
 license = { text = "MIT" }
