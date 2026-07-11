@@ -10,3 +10,10 @@ __pycache__/
 *.env
 .env
 *.bak
+.token
+.pid
+
+# Python packaging build artifacts.
+build/
+dist/
+*.egg-info/

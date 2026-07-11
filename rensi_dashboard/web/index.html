@@ -785,6 +785,13 @@
 (function () {
   "use strict";
 
+  // The one-time auth handoff (?t=<token>) must never linger visibly in the
+  // address bar / browser history / autocomplete once the server has set
+  // the session cookie from it -- scrub it before anything else runs.
+  if (location.search.indexOf("t=") !== -1) {
+    try { history.replaceState(null, "", location.pathname + location.hash); } catch (e) {}
+  }
+
   var LOC = "es";
   var REFRESH_MS = 30000;
   var STALE_MS = 3 * 60 * 1000 + 60 * 1000; // aggregator cadence (180s) + slack for slow runs (claude-monitor subprocess timeout up to 20s)
