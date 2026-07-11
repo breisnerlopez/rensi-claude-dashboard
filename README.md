@@ -51,6 +51,6 @@ MIT — see [LICENSE](LICENSE).
 
 ---
 
-Built by [Breisner Lopez](https://breisner.info) · [GitHub](https://github.com/GITHUB_USERNAME_PENDING)
+Built by [Breisner Lopez](https://breisner.info) · [GitHub](https://github.com/breisnerlopez)
 
 ⭐ **If this is useful to you, starring the repo is the easiest way to say so** — it's how other people find small tools like this.
