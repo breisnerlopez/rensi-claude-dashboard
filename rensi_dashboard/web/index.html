@@ -879,7 +879,7 @@
     en: {
       loading: "Loading…", updatedNow: "updated now", updatedAgo: "updated {s}s ago", updatedAgoMin: "updated {m} min ago",
       dataNotUpdated: "data not updated ({m} min ago)", apiDown: "official API down for {t}",
-      block5h: "5h Block", official: "official", resetsIn: "Resets in", resetsIn2: "in {t}", official5hLimit: "official 5h limit",
+      block5h: "5h Block", official: "official", officialCached: "official · cached", resetsIn: "Resets in", resetsIn2: "in {t}", official5hLimit: "official 5h limit",
       blockTokens: "Block tokens", estimated: "(estimated)", noOfficialData: "no official data",
       noOfficial5hNow: "No official 5h block data right now.", earlyEstimate: "Early estimate: numbers are noisy at the start of a block.",
       windowElapsed: "Window elapsed", calculatingProjection: "Calculating projection…", noProjectionMissing: "No projection: official data missing.",
@@ -936,7 +936,7 @@
     es: {
       loading: "Cargando…", updatedNow: "actualizado ahora", updatedAgo: "actualizado hace {s}s", updatedAgoMin: "actualizado hace {m} min",
       dataNotUpdated: "datos no actualizados (hace {m} min)", apiDown: "API oficial caída hace {t}",
-      block5h: "Bloque de 5 h", official: "oficial", resetsIn: "Se reinicia en", resetsIn2: "en {t}", official5hLimit: "límite oficial 5 h",
+      block5h: "Bloque de 5 h", official: "oficial", officialCached: "oficial · caché", resetsIn: "Se reinicia en", resetsIn2: "en {t}", official5hLimit: "límite oficial 5 h",
       blockTokens: "Tokens del bloque", estimated: "(estimado)", noOfficialData: "sin datos oficiales",
       noOfficial5hNow: "Sin datos oficiales del bloque de 5 h ahora mismo.", earlyEstimate: "Estimación temprana: al inicio del bloque los números son ruidosos.",
       windowElapsed: "Ventana transcurrida", calculatingProjection: "Calculando proyección…", noProjectionMissing: "Sin proyección: faltan datos oficiales.",
@@ -1241,6 +1241,15 @@
       wrap.innerHTML = '<span id="heroPct">' + fmtPct(clampPct(pctVal)) + '</span><span class="unit">%</span>';
       cap.textContent = t("official5hLimit");
       pill.style.display = "inline-flex";
+      // Reused last-good official value (a fetch timed out this cycle): keep the
+      // gauge populated but flag the pill as cached, not live, so it's honest.
+      var pillLabel = pill.querySelector("[data-i18n]");
+      if (pillLabel) {
+        var pillKey = cur.official_stale === true ? "officialCached" : "official";
+        pillLabel.setAttribute("data-i18n", pillKey);
+        pillLabel.textContent = t(pillKey);
+      }
+      pill.classList.toggle("stale", cur.official_stale === true);
       hero.style.setProperty("--hero-glow", st.soft);
       if (cur.low_confidence === true) {
         warn.classList.add("show");

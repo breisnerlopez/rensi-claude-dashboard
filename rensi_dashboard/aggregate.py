@@ -292,8 +292,12 @@ def cm_api():
         env = os.environ.copy()
         if str(core.CLAUDE_HOME) != str(os.path.expanduser("~")):
             env["HOME"] = str(core.CLAUDE_HOME)
+        # claude-monitor's oauth usage call is a live network round-trip that
+        # runs ~17-25s cold; a 20s budget timed out often enough to blank the
+        # official panel every few cycles. 45s covers the cold path with margin
+        # (the scheduler interval is far longer, so a slow run costs nothing).
         o = subprocess.run([exe, "--api", "--once", "--view", "realtime", "--output", "json"],
-                            capture_output=True, text=True, timeout=20, env=env)
+                            capture_output=True, text=True, timeout=45, env=env)
         d = json.loads(o.stdout); lim = d.get("limits") or {}
         return lim.get("five_hour") or {}, lim.get("seven_day") or {}, d.get("local") or {}, True
     except Exception:
@@ -306,6 +310,38 @@ def prev_api_fail_since():
             return json.load(f).get("api_fail_since")
     except Exception:
         return None
+
+
+def _window_live(lim, now):
+    """True if this limit dict's window hasn't rolled over yet -- i.e. a cached
+    percentage for it still describes the current window, not a stale past one."""
+    ra = lim.get("resets_at") if lim else None
+    if not ra:
+        return False
+    try:
+        return dt.datetime.fromisoformat(ra) > now
+    except Exception:
+        return False
+
+
+def prev_official(now):
+    """Last good official five_hour/seven_day dicts from the previous data.json,
+    reshaped like cm_api()'s return so a timed-out run can reuse them instead of
+    blanking the panel. Only windows that are still live are returned -- a rolled
+    -over 5h window's old percentage would be misleading, so it's dropped."""
+    try:
+        with open(core.DATA_FILE) as f:
+            c = json.load(f).get("current") or {}
+    except Exception:
+        return {}, {}
+    fh = {}
+    if c.get("pct") is not None:
+        fh = {"used_percentage": c["pct"], "resets_at": c.get("resets_at")}
+    w = c.get("weekly") or {}
+    sd = {}
+    if w.get("pct") is not None:
+        sd = {"used_percentage": w["pct"], "resets_at": w.get("resets_at")}
+    return (fh if _window_live(fh, now) else {}), (sd if _window_live(sd, now) else {})
 
 
 def main(fast=False):
@@ -345,9 +381,19 @@ def main(fast=False):
             recs.append((dt.datetime.fromisoformat(ts.replace("Z", "+00:00")), tok, cost))
 
     fh, sd, loc, api_ok = cm_api()
-    api_fail_since = None if api_ok else (prev_api_fail_since() or now_utc().isoformat())
+    now = now_utc()
+    official_stale = False
+    if not api_ok:
+        # Transient fetch miss (usually a slow oauth call): reuse the last good
+        # official numbers for any window that's still live rather than flipping
+        # the whole panel to "no official data" on a single timeout. api_ok stays
+        # False so api_fail_since still tracks the genuine outage for the chip.
+        pfh, psd = prev_official(now)
+        fh = pfh or fh; sd = psd or sd
+        official_stale = bool(pfh or psd)
+    api_fail_since = None if api_ok else (prev_api_fail_since() or now.isoformat())
     off5 = fh.get("used_percentage"); off7 = sd.get("used_percentage")
-    now = now_utc(); today = now.astimezone(LOCAL_TZ).date(); wkstart = today - dt.timedelta(days=today.weekday())
+    today = now.astimezone(LOCAL_TZ).date(); wkstart = today - dt.timedelta(days=today.weekday())
     win_end = None
     if fh.get("resets_at"):
         try:
@@ -450,12 +496,17 @@ def main(fast=False):
                 if rate > 0:
                     eta["exhaust_in_min"] = round((100 - off5) / rate)
 
-    current = {"official_available": api_ok and off5 is not None, "pct": off5, "resets_at": fh.get("resets_at"),
+    # off5/off7 only ever come from the official source (live this run, or the
+    # sticky cache above), never from a local estimate -- so their presence is
+    # what "official available" means, whether fresh or stale.
+    current = {"official_available": off5 is not None, "official_stale": official_stale,
+        "pct": off5, "resets_at": fh.get("resets_at"),
         "elapsed_pct": el, "pace_label": pace, "eta": eta,
         "cost_usd": next((b["cost_usd"] for b in today_blocks if b["active"]), None),
         "tokens_active": active_tok, "derived_limit": round(derived_limit) if derived_limit else None,
         "low_confidence": LOW_CONF,
-        "weekly": {"official_available": api_ok and off7 is not None, "pct": off7, "resets_at": sd.get("resets_at")}}
+        "weekly": {"official_available": off7 is not None, "official_stale": official_stale,
+                   "pct": off7, "resets_at": sd.get("resets_at")}}
 
     def sustainable():
         if off7 is None or not sd.get("resets_at"):
@@ -482,7 +533,8 @@ def main(fast=False):
     current["weekly"].update(sustainable())
     data = {"generated_at": now.isoformat(), "tz": str(LOCAL_TZ), "api_ok": api_ok,
         "api_fail_since": api_fail_since,
-        "source": "official (anthropic oauth usage api)" if api_ok else "NO API",
+        "source": ("official (anthropic oauth usage api)" if api_ok
+                   else "official (stale cache)" if official_stale else "NO API"),
         "current": current, "today_blocks": today_blocks, "week": week, "history": history,
         "sessions": sessions_info(summaries), "sessions_generated_at": now.isoformat(),
         "week_start": wkstart.isoformat(), "today": today.isoformat()}
